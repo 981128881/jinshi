@@ -1,0 +1,59 @@
+# 阿里云 Nginx 示例（/etc/nginx/conf.d/supermarket.conf）
+# 替换 your-domain.com，证书用 certbot 或阿里云免费 SSL
+
+# API 后端
+server {
+    listen 443 ssl http2;
+    server_name api.your-domain.com;
+
+    ssl_certificate     /etc/nginx/ssl/api.fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/api.privkey.pem;
+
+    client_max_body_size 20m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/admin/ws {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+
+# 管理后台静态站（build 产物 wxapp-admin/dist）
+server {
+    listen 443 ssl http2;
+    server_name admin.your-domain.com;
+
+    ssl_certificate     /etc/nginx/ssl/admin.fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/admin.privkey.pem;
+
+    root /opt/supermarket/wxapp-admin/dist;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        proxy_pass http://127.0.0.1:3000;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

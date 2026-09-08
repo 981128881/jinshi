@@ -1,0 +1,22 @@
+# rsync 上传云服务器时排除（体积大、服务器上重新生成）
+node_modules/
+unpackage/
+dist/
+.git/
+.scratch/
+*.log
+logs/
+.env
+.env.local
+
+# 商品图：首次用 rsync 单独传，或放阿里云 OSS
+# 若服务器已有图，可取消下面注释
+# public/products/
+
+# POS 店内数据不上传
+AiBaoPOS/ABPOSYun/
+AiBaoPOS/export/
+
+# Android 构建缓存
+wxapp-merchant-android/.gradle/
+wxapp-merchant-android/**/build/

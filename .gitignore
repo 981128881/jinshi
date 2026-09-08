@@ -1,0 +1,59 @@
+# ========== 依赖 & 构建（绝不要提交）==========
+**/node_modules/
+**/dist/
+**/unpackage/
+**/.hbuilderx/
+**/coverage/
+**/.vite/
+
+# ========== 环境与密钥 ==========
+**/.env
+**/.env.local
+**/.env*.local
+**/.env.production
+**/.env.development
+!**/.env.example
+**/certs/*.pem
+**/certs/*.p12
+
+# 证件、设计源文件、根目录宣传图不上库
+身份证.*
+*.psd
+.agents/
+.cursor/
+
+# ========== 日志与临时 ==========
+**/logs/
+**/*.log
+**/.scratch/
+**/_size_report.json
+
+# ========== 商品图 & 大静态资源（用 OSS / rsync 单独传）==========
+wxapp-backend/public/products/
+wxapp-backend/public/category/*.jpg
+wxapp-backend/public/category/*.png
+
+# ========== POS 本地数据（不上云 git）==========
+AiBaoPOS/ABPOSYun/
+AiBaoPOS/export/
+AiBaoPOS/sync/.sync_state.json
+AiBaoPOS/sync/sync.log
+AiBaoPOS/sync/*.db
+
+# ========== IDE / OS ==========
+.DS_Store
+Thumbs.db
+nul
+NUL
+.idea/
+.vscode/
+*.swp
+
+# ========== Android 构建 ==========
+wxapp-merchant-android/.gradle/
+wxapp-merchant-android/**/build/
+wxapp-merchant-android/local.properties
+
+# ========== 本地报告 ==========
+**/patch-*-report.txt
+**/fetch-category-top-images-report.txt

@@ -1,0 +1,24 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "jsf-backend/**"
+      - "jsf-admin/**"
+      - "deploy/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH 更新服务器
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          command_timeout: 20m
+          script: bash /opt/jsf/deploy/update.sh
