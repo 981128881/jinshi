@@ -1,0 +1,33 @@
+# 国内镜像。库名/端口必须与 docker-compose.yml、.env.example 一致
+# docker compose -f docker-compose.mirror.yml up -d
+
+services:
+  mysql:
+    image: docker.m.daocloud.io/library/mysql:8.0
+    container_name: jinshifang-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: jinshifang
+      MYSQL_USER: wxapp
+      MYSQL_PASSWORD: wxapp123456
+      TZ: Asia/Shanghai
+    ports:
+      - "3307:3306"
+    volumes:
+      - jinshifang_mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  redis:
+    image: docker.m.daocloud.io/library/redis:7-alpine
+    container_name: jinshifang-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - jinshifang_redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  jinshifang_mysql_data:
+  jinshifang_redis_data:

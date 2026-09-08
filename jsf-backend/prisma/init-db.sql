@@ -1,0 +1,4 @@
+CREATE DATABASE IF NOT EXISTS jinshifang CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON jinshifang.* TO 'wxapp'@'%';
+FLUSH PRIVILEGES;
+SHOW DATABASES LIKE 'jinshifang';

@@ -30,6 +30,7 @@
 
 # ========== 商品图 & 大静态资源（用 OSS / rsync 单独传）==========
 wxapp-backend/public/products/
+jsf-backend/public/products/
 wxapp-backend/public/category/*.jpg
 wxapp-backend/public/category/*.png
 

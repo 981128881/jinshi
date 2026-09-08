@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Order` ADD COLUMN `remark` VARCHAR(256) NOT NULL DEFAULT '';

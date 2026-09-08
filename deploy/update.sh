@@ -24,14 +24,19 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# 国内默认 mirror；没这个文件就用 docker-compose.yml
-if [[ -f docker-compose.mirror.yml ]]; then
-  docker compose -f docker-compose.mirror.yml up -d
-else
-  docker compose up -d
+COMPOSE="$ROOT/jsf-backend/docker-compose.mirror.yml"
+if [[ ! -f "$COMPOSE" ]]; then
+  COMPOSE="$ROOT/jsf-backend/docker-compose.yml"
 fi
+if [[ ! -f "$COMPOSE" ]]; then
+  echo "缺少 docker compose 配置，先确认 GitHub 上有 jsf-backend/docker-compose*.yml" >&2
+  ls -la "$ROOT/jsf-backend" >&2
+  exit 1
+fi
+docker compose -f "$COMPOSE" up -d
 
-npm ci
+# ponytail: lockfile 没推进 GitHub 时 ci 会拒装；有 package-lock.json 仍走 ci
+if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
 npx prisma db push
 export NODE_ENV=production
 if pm2 describe jsf-api >/dev/null 2>&1; then
@@ -45,7 +50,7 @@ cd "$ROOT/jsf-admin"
 if [[ ! -f .env.production.local ]]; then
   printf 'VITE_API_BASE=/api\nVITE_FILE_BASE=\nVITE_USE_MOCK=false\n' > .env.production.local
 fi
-npm ci
+if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
 npm run build
 
 pm2 save

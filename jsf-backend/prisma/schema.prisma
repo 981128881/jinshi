@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// 平台 C 端用户（微信）
+model User {
+  id        Int        @id @default(autoincrement())
+  openid    String     @unique @db.VarChar(64)
+  nickname  String     @default("锦食坊用户") @db.VarChar(64)
+  avatar    String     @default("") @db.VarChar(512)
+  phone     String     @default("") @db.VarChar(20)
+  createdAt DateTime   @default(now())
+  cartItems CartItem[]
+  orders    Order[]
+  applications OnboardingApplication[]
+  memberships RestaurantMember[]
+}
+
+/// 平台级配置（原单店 ShopConfig）
+model PlatformConfig {
+  id                  Int     @id @default(1)
+  name                String  @default("锦食坊") @db.VarChar(128)
+  servicePhone        String  @default("") @db.VarChar(32)
+  showBannerSection   Boolean @default(true)
+  showCategorySection Boolean @default(true)
+  showRecommendSection Boolean @default(true)
+}
+
+model Banner {
+  id       Int    @id @default(autoincrement())
+  imageUrl String @db.VarChar(512)
+  title    String @default("") @db.VarChar(128)
+  link     String @default("") @db.VarChar(512)
+  sort     Int    @default(0)
+  enabled  Boolean @default(true)
+}
+
+/// 平台餐饮品类（发现页筛选）
+model CuisineType {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(64)
+  icon        String       @default("") @db.VarChar(32)
+  iconImage   String       @default("") @db.VarChar(512)
+  sort        Int          @default(0)
+  visible     Boolean      @default(true)
+  restaurants Restaurant[]
+
+  @@index([sort])
+}
+
+model Restaurant {
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(128)
+  logo          String    @default("") @db.VarChar(512)
+  coverImage    String    @default("") @db.VarChar(512)
+  cuisineTypeId Int?
+  cuisineType   CuisineType? @relation(fields: [cuisineTypeId], references: [id])
+  phone         String    @default("") @db.VarChar(32)
+  address       String    @default("") @db.VarChar(256)
+  latitude      Float     @default(0)
+  longitude     Float     @default(0)
+  description   String    @db.Text
+  monthlySales  Int       @default(0)
+  /// draft|pending|approved|rejected|disabled
+  status        String    @default("pending") @db.VarChar(32)
+  open          Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  categories    MenuCategory[]
+  dishes        Dish[]
+  members       RestaurantMember[]
+  orders        Order[]
+  cartItems     CartItem[]
+  application   OnboardingApplication?
+  appAccounts   MerchantAppAccount[]
+
+  @@index([status])
+  @@index([cuisineTypeId])
+  @@index([open, status])
+}
+
+/// 商家 Android App 登录账号（一账号绑定一家餐厅）
+model MerchantAppAccount {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  username     String     @unique @db.VarChar(64)
+  password     String     @db.VarChar(256)
+  enabled      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([restaurantId])
+}
+
+model RestaurantMember {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// owner|staff
+  role         String     @default("owner") @db.VarChar(16)
+  createdAt    DateTime   @default(now())
+
+  @@unique([restaurantId, userId])
+  @@index([userId])
+}
+
+model OnboardingApplication {
+  id             Int         @id @default(autoincrement())
+  userId         Int
+  user           User        @relation(fields: [userId], references: [id])
+  restaurantId   Int?        @unique
+  restaurant     Restaurant? @relation(fields: [restaurantId], references: [id])
+  /// draft|submitted|reviewing|approved|rejected
+  status         String      @default("draft") @db.VarChar(32)
+  contactName    String      @default("") @db.VarChar(64)
+  contactPhone   String      @default("") @db.VarChar(20)
+  legalPerson    String      @default("") @db.VarChar(64)
+  licenseNo      String      @default("") @db.VarChar(64)
+  licenseImage   String      @default("") @db.VarChar(512)
+  restaurantName String      @default("") @db.VarChar(128)
+  cuisineTypeId  Int?
+  address        String      @default("") @db.VarChar(256)
+  latitude       Float       @default(0)
+  longitude      Float       @default(0)
+  doorImage      String      @default("") @db.VarChar(512)
+  insideImage    String      @default("") @db.VarChar(512)
+  rejectReason   String      @default("") @db.VarChar(512)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  submittedAt    DateTime?
+  auditedAt      DateTime?
+  auditLogs      OnboardingAuditLog[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OnboardingAuditLog {
+  id            Int                   @id @default(autoincrement())
+  applicationId Int
+  application   OnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  adminId       Int?
+  adminName     String                @default("") @db.VarChar(64)
+  action        String                @db.VarChar(32)
+  remark        String                @default("") @db.VarChar(512)
+  createdAt     DateTime              @default(now())
+
+  @@index([applicationId])
+}
+
+/// 餐厅内菜单分类
+model MenuCategory {
+  id           Int        @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String     @db.VarChar(64)
+  sort         Int        @default(0)
+  visible      Boolean    @default(true)
+  dishes       Dish[]
+
+  @@index([restaurantId, sort])
+}
+
+model Dish {
+  id           Int          @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId   Int
+  category     MenuCategory @relation(fields: [categoryId], references: [id])
+  name         String       @db.VarChar(256)
+  price        Float
+  image        String       @default("") @db.VarChar(512)
+  desc         String       @db.Text
+  visible      Boolean      @default(true)
+  sort         Int          @default(0)
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([restaurantId, visible])
+}
+
+/// 选菜清单（单店预约前暂存）
+model CartItem {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  dishId       Int
+  dish         Dish       @relation(fields: [dishId], references: [id])
+  quantity     Int        @default(1)
+
+  @@unique([userId, dishId])
+  @@index([userId, restaurantId])
+}
+
+/// 到店预约单（无支付、无配送）
+model Order {
+  id           String      @id @db.VarChar(32)
+  userId       Int
+  user         User        @relation(fields: [userId], references: [id])
+  restaurantId Int
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  /// submitted|accepted|ready|completed|cancelled
+  status       String      @default("submitted") @db.VarChar(32)
+  totalAmount  Float       @default(0)
+  remark       String      @default("") @db.VarChar(256)
+  contactName  String      @default("") @db.VarChar(64)
+  contactPhone String      @default("") @db.VarChar(20)
+  /// 预约到店时间
+  reserveAt    DateTime?
+  createdAt    DateTime    @default(now())
+  acceptedAt   DateTime?
+  readyAt      DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  items        OrderItem[]
+
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([status])
+  @@index([restaurantId, status])
+  @@index([userId, status, restaurantId])
+}
+
+model OrderItem {
+  id       Int    @id @default(autoincrement())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dishId   Int?
+  dish     Dish?  @relation(fields: [dishId], references: [id])
+  name     String @db.VarChar(256)
+  price    Float
+  quantity Int
+  image    String @default("") @db.VarChar(512)
+
+  @@index([orderId])
+}
+
+model AdminUser {
+  id          Int      @id @default(autoincrement())
+  username    String   @unique @db.VarChar(64)
+  password    String   @db.VarChar(256)
+  nickname    String   @default("") @db.VarChar(64)
+  enabled     Boolean  @default(true)
+  isSuper     Boolean  @default(false)
+  permissions Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

@@ -1,0 +1,71 @@
+{
+  "name": "wxapp-backend",
+  "version": "1.0.0",
+  "description": "商超小程序后台 API 服务",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:prod": "node --env-file=.env.production src/index.js",
+    "dev": "node --watch src/index.js",
+    "generate": "prisma generate",
+    "db:push": "prisma generate && prisma db push",
+    "db:seed": "node prisma/seed-jinshifang.js",
+    "db:seed-merchants": "node prisma/seed-merchants.js",
+    "db:setup": "prisma generate && prisma db push && node prisma/seed-jinshifang.js && node prisma/seed-merchants.js",
+    "db:patch": "node prisma/patch-home-settings.js",
+    "db:patch-search": "node prisma/patch-search-fulltext.js",
+    "db:patch-order-remark": "node prisma/patch-order-remark.js",
+    "db:patch-admin-users": "node prisma/patch-admin-users.js",
+    "db:patch-pos-sync": "node prisma/patch-pos-sync.js",
+    "db:clear-products": "node prisma/clear-all-products.js",
+    "db:classify-products": "node prisma/classify-products.js",
+    "icons:sync": "node prisma/sync-category-icons.js",
+    "import:barcodes": "node prisma/import-barcodes.js",
+    "backfill:barcodes": "node prisma/backfill-barcodes.js",
+    "fetch:images": "node prisma/fetch-product-images.js",
+    "fetch:images:food": "node prisma/fetch-product-images.js --food --limit=5000",
+    "fetch:images:top40": "node prisma/fetch-category-top-images.js --per-category=40",
+    "enrich:taobao": "node prisma/enrich-taobao-barcode.js",
+    "enrich:jd": "node prisma/enrich-jd-playwright.js",
+    "enrich:images": "node prisma/enrich-product-images.js",
+    "enrich:images:jd": "node prisma/enrich-product-images.js --with-jd --headed",
+    "enrich:brands": "node prisma/enrich-brand-images.js",
+    "enrich:brands:list": "node prisma/enrich-brand-images.js --list",
+    "enrich:brands:jd": "node prisma/enrich-brand-images.js --with-jd --headed",
+    "enrich:brands:auto": "node prisma/run-enrich-brands-auto.js",
+    "enrich:brands:stock": "node prisma/download-brand-stock.js",
+    "test:merchant-ws": "node scripts/test-merchant-ws.js",
+    "create:test-order": "node scripts/create-test-paid-order.js",
+    "test:merchant-notify": "node scripts/merchant-notify-self-check.js",
+    "test:system": "node scripts/system-test.js",
+    "logs:today": "node scripts/show-logs.js",
+    "test:order-contact-phone": "node scripts/order-contact-phone-self-check.js",
+    "postinstall": "prisma generate",
+    "db:patch-on-shelf": "node prisma/patch-products-on-shelf.js",
+    "db:patch-sales": "node prisma/patch-product-sales.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
+    "playwright": "^1.61.1",
+    "sharp": "^0.33.5",
+    "wechatpay-node-v3": "^2.2.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.2.1"
+  }
+}

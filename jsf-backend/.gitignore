@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+logs/
+.env
+*.log
+certs/*.pem
+certs/*.p12
+public/uploads/wxacode/*.png

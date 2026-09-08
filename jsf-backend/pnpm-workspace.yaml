@@ -1,0 +1,11 @@
+packages:
+  - '.'
+
+# pnpm 跑 postinstall 时子进程 PATH 可能不含 node，需显式注入
+scriptsPrependNodePath: true
+
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  sharp: true
