@@ -1,0 +1,3 @@
+/* uni.scss - uview-plus 主题变量（勿引入 index.scss） */
+/* 必须用 @/，因 uni.scss 会注入到各组件 scss，相对路径会解析失败 */
+@import '@/uni_modules/uview-plus/theme.scss';

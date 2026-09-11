@@ -2,6 +2,7 @@ const express = require('express')
 const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { resolvePublicUrl } = require('../utils/publicUrl')
+const { parseDishTags } = require('../utils/dishTags')
 const { verifyToken } = require('../utils/jwt')
 const { getOrSet, CACHE_KEYS } = require('../db/redis')
 
@@ -32,18 +33,13 @@ function tryUserId(req) {
   }
 }
 
-function keepLocal(p) {
-  if (!p) return ''
-  return p.startsWith('/static/') ? p : resolvePublicUrl(p)
-}
-
 function mapRestaurant(row, extra = {}) {
   if (!row) return null
   return {
     id: row.id,
     name: row.name,
-    logo: keepLocal(row.logo || ''),
-    coverImage: keepLocal(row.coverImage || ''),
+    logo: resolvePublicUrl(row.logo || ''),
+    coverImage: resolvePublicUrl(row.coverImage || ''),
     cuisineTypeId: row.cuisineTypeId,
     cuisineName: row.cuisineType?.name || '',
     phone: row.phone,
@@ -66,8 +62,8 @@ function mapRestaurantCard(row, extra = {}) {
   return {
     id: row.id,
     name: row.name,
-    logo: keepLocal(row.logo || ''),
-    coverImage: keepLocal(row.coverImage || ''),
+    logo: resolvePublicUrl(row.logo || ''),
+    coverImage: resolvePublicUrl(row.coverImage || ''),
     cuisineTypeId: row.cuisineTypeId,
     cuisineName: row.cuisineType?.name || '',
     latitude: row.latitude,
@@ -83,16 +79,15 @@ function mapRestaurantCard(row, extra = {}) {
 
 function mapDish(row) {
   if (!row) return null
-  const image = row.image || ''
-  const keepLocal = (p) => (p.startsWith('/static/') ? p : resolvePublicUrl(p))
   return {
     id: row.id,
     categoryId: row.categoryId,
     name: row.name,
     price: row.price,
-    image: keepLocal(image),
+    image: resolvePublicUrl(row.image || ''),
     desc: row.desc || '',
-    visible: row.visible
+    visible: row.visible,
+    tags: parseDishTags(row.tags)
   }
 }
 

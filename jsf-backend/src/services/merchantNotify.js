@@ -76,6 +76,7 @@ async function publishOrderPaid(order) {
   return publishMerchantNotify({
     type: 'order.paid',
     orderId: order.id,
+    restaurantId: order.restaurantId,
     totalAmount: order.totalAmount,
     createdAt: order.createdAt
   })

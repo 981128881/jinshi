@@ -5,7 +5,7 @@ const { getOrSet, cacheDel, CACHE_KEYS } = require('../db/redis')
 function formatPlatformConfig(row) {
   if (!row) {
     return {
-      name: '锦食坊',
+      name: '金石菜牌齐市店',
       servicePhone: '400-888-8888',
       showBannerSection: true,
       showCategorySection: true,
@@ -44,7 +44,7 @@ async function updateShopConfig(data = {}) {
     where: { id: 1 },
     create: {
       id: 1,
-      name: payload.name || '锦食坊',
+      name: payload.name || '金石菜牌齐市店',
       servicePhone: payload.servicePhone || '400-888-8888',
       showBannerSection: payload.showBannerSection !== false,
       showCategorySection: payload.showCategorySection !== false,

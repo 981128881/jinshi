@@ -1,12 +1,13 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
       <div class="filters">
-        <el-input v-model="query.keyword" placeholder="搜索商品" clearable style="width: 200px" @keyup.enter="loadData" />
-        <el-select v-model="query.categoryId" placeholder="全部分类" clearable style="width: 140px" @change="loadData">
+        <el-input v-model="query.keyword" placeholder="搜索商品" clearable style="width: 200px" />
+        <el-select v-model="query.categoryId" placeholder="全部分类" clearable style="width: 140px">
           <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
         </el-select>
-        <el-button type="primary" @click="loadData">查询</el-button>
+        <el-button type="primary" @click="search">查询</el-button>
+        <el-button @click="reset">重置</el-button>
         <span class="sort-hint">按销量从高到低</span>
       </div>
       <div class="actions">
@@ -32,22 +33,17 @@
     <div v-if="selectedRows.length" class="batch-bar">
       <span class="batch-tip">已选 <strong>{{ selectedRows.length }}</strong> 项</span>
       <el-button v-permission="PERMISSION.PRODUCT_BATCH_CATEGORY" size="small" @click="openBatchCategory">批量改分类</el-button>
-      <el-popconfirm
-        :title="`确认删除选中的 ${selectedRows.length} 个商品？`"
-        @confirm="handleBatchDelete"
-      >
-        <template #reference>
-          <el-button v-permission="PERMISSION.PRODUCT_BATCH_DELETE" size="small" type="danger" :loading="batchLoading">批量删除</el-button>
-        </template>
-      </el-popconfirm>
+      <el-button v-permission="PERMISSION.PRODUCT_BATCH_DELETE" size="small" type="danger" :loading="batchLoading" @click="handleBatchDelete">批量删除</el-button>
       <el-button size="small" link @click="clearSelection">取消选择</el-button>
     </div>
 
+    <div class="table-fill">
     <el-table
       ref="tableRef"
       :data="list"
       v-loading="loading"
       stripe
+      height="100%"
       row-key="id"
       @selection-change="handleSelectionChange"
     >
@@ -101,14 +97,11 @@
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button v-permission="PERMISSION.PRODUCT_EDIT" link type="primary" @click="goEdit(row.id)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
-            <template #reference>
-              <el-button v-permission="PERMISSION.PRODUCT_DELETE" link type="danger">删除</el-button>
-            </template>
-          </el-popconfirm>
+          <el-button v-permission="PERMISSION.PRODUCT_DELETE" link type="danger" @click="handleDelete(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
     <AppPagination v-model:page="query.page" v-model:page-size="query.pageSize" :total="total" @change="loadData" />
 
@@ -128,6 +121,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import AppPagination from '@/components/AppPagination.vue'
 import { DEFAULT_PAGE_SIZE } from '@/constants/pagination'
 import { PERMISSION } from '@/constants/permissions'
@@ -252,6 +246,18 @@ async function loadData() {
   }
 }
 
+function search() {
+  query.page = 1
+  loadData()
+}
+
+function reset() {
+  query.keyword = ''
+  query.categoryId = null
+  query.page = 1
+  loadData()
+}
+
 function openBatchCategory() {
   if (!selectedRows.value.length) return
   batchCategoryId.value = categories.value[0]?.id || null
@@ -259,6 +265,7 @@ function openBatchCategory() {
 }
 
 async function handleDelete(id) {
+  if (!(await confirmAction('确定删除该商品？', '删除确认', '删除'))) return
   await deleteProduct(id)
   ElMessage.success('已删除')
   loadData()
@@ -267,6 +274,7 @@ async function handleDelete(id) {
 async function handleBatchDelete() {
   const ids = selectedIds()
   if (!ids.length) return
+  if (!(await confirmAction(`确定删除选中的 ${ids.length} 个商品？`, '批量删除', '删除'))) return
   batchLoading.value = true
   try {
     const { count } = await batchDeleteProducts(ids)

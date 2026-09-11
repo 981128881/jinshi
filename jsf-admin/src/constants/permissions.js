@@ -15,7 +15,6 @@ export const PERMISSION = {
 
   RESTAURANT_EDIT: 'restaurant:edit',
   RESTAURANT_MENU: 'restaurant:menu',
-  RESTAURANT_APP_ACCOUNT: 'restaurant:app-account',
 
   CUISINE_CREATE: 'cuisine:create',
   CUISINE_EDIT: 'cuisine:edit',
@@ -42,7 +41,6 @@ export const ALL_PERMISSION_CODES = [
   'onboarding:review',
   'menu:restaurants',
   'restaurant:edit',
-  'restaurant:app-account',
   'menu:dishes',
   'restaurant:menu',
   'menu:cuisine-types',

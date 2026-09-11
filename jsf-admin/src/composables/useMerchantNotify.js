@@ -21,9 +21,9 @@ const shared = {
   seenOrders: new Map()
 }
 
-function buildWsUrl(token) {
+function buildWsUrl() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}${WS_PATH}?token=${encodeURIComponent(token)}`
+  return `${protocol}//${window.location.host}${WS_PATH}`
 }
 
 function playNewOrderSound() {
@@ -116,14 +116,18 @@ function connect() {
   if (!isValidToken(token)) return
 
   try {
-    shared.ws = new WebSocket(buildWsUrl(token))
+    shared.ws = new WebSocket(buildWsUrl())
   } catch {
     scheduleReconnect()
     return
   }
 
   shared.ws.onopen = () => {
-    shared.connected.value = true
+    try {
+      shared.ws.send(JSON.stringify({ token }))
+    } catch {
+      /* ignore */
+    }
   }
   shared.ws.onmessage = handleMessage
   shared.ws.onclose = () => {
@@ -131,9 +135,7 @@ function connect() {
     shared.ws = null
     if (shared.refCount > 0 && isValidToken(getToken())) scheduleReconnect()
   }
-  shared.ws.onerror = () => {
-    shared.connected.value = false
-  }
+  shared.ws.onerror = () => {}
 }
 
 /**
@@ -144,8 +146,8 @@ export function useMerchantNotify() {
     shared.refCount += 1
     if (shared.refCount === 1) {
       connect()
-      shared.offTokenChange = onTokenChange(() => {
-        if (shared.refCount > 0) connect()
+      shared.offTokenChange = onTokenChange((next) => {
+        if (shared.refCount > 0 && next) connect()
       })
     }
   })

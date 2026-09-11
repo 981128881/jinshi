@@ -59,7 +59,6 @@ node deploy/apply-production-env.mjs --domain=shop.example.com \
 | 后端 API | `wxapp-backend/.env.production` |
 | 管理后台 | `wxapp-admin/.env.production` |
 | 小程序 | `wxapp-frontend/.env.production`、`config/index.js` |
-| 商家 App | `wxapp-merchant-android/.../AuthStore.kt` |
 | POS 同步 | `AiBaoPOS/sync/config.production.yaml` |
 
 ## 2. DNS 解析（阿里云控制台）

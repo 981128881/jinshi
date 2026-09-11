@@ -2,8 +2,9 @@ const express = require('express')
 const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { adminRequired } = require('../middleware/adminAuth')
+const { requirePermission } = require('../middleware/adminPermission')
 const { resolvePublicUrl } = require('../utils/publicUrl')
-const { ensureOwnerAppAccount } = require('../services/merchantAppAuth')
+const { allocRestaurantCode } = require('../utils/restaurantCode')
 
 const router = express.Router()
 
@@ -26,6 +27,7 @@ function mapApp(row) {
     insideImage: resolvePublicUrl(row.insideImage || ''),
     rejectReason: row.rejectReason || '',
     restaurantId: row.restaurantId,
+    restaurantCode: row.restaurant?.code || '',
     userId: row.userId,
     userNickname: row.user?.nickname || '',
     userPhone: row.user?.phone || '',
@@ -42,7 +44,7 @@ function mapApp(row) {
   }
 }
 
-router.get('/', adminRequired, async (req, res, next) => {
+router.get('/', adminRequired, requirePermission('menu:onboarding'), async (req, res, next) => {
   try {
     const { status, page = 1, pageSize = 20 } = req.query
     const where = {}
@@ -53,7 +55,7 @@ router.get('/', adminRequired, async (req, res, next) => {
       prisma.onboardingApplication.count({ where }),
       prisma.onboardingApplication.findMany({
         where,
-        include: { user: true },
+        include: { user: true, restaurant: true },
         orderBy: { id: 'desc' },
         skip,
         take
@@ -65,11 +67,11 @@ router.get('/', adminRequired, async (req, res, next) => {
   }
 })
 
-router.get('/:id', adminRequired, async (req, res, next) => {
+router.get('/:id', adminRequired, requirePermission('menu:onboarding'), async (req, res, next) => {
   try {
     const row = await prisma.onboardingApplication.findUnique({
       where: { id: Number(req.params.id) },
-      include: { user: true, auditLogs: { orderBy: { id: 'desc' } } }
+      include: { user: true, restaurant: true, auditLogs: { orderBy: { id: 'desc' } } }
     })
     if (!row) return fail(res, 404, '申请不存在', 404)
     return success(res, mapApp(row))
@@ -79,7 +81,7 @@ router.get('/:id', adminRequired, async (req, res, next) => {
 })
 
 /** 通过：创建餐厅并绑定 owner */
-router.post('/:id/approve', adminRequired, async (req, res, next) => {
+router.post('/:id/approve', adminRequired, requirePermission('onboarding:review'), async (req, res, next) => {
   try {
     const id = Number(req.params.id)
     const app = await prisma.onboardingApplication.findUnique({ where: { id } })
@@ -93,6 +95,7 @@ router.post('/:id/approve', adminRequired, async (req, res, next) => {
       if (!restaurantId) {
         const restaurant = await tx.restaurant.create({
           data: {
+            code: await allocRestaurantCode(tx),
             name: app.restaurantName,
             cuisineTypeId: app.cuisineTypeId,
             phone: app.contactPhone,
@@ -124,16 +127,6 @@ router.post('/:id/approve', adminRequired, async (req, res, next) => {
         })
       }
 
-      // 店主商家 App 账号：用户名/默认密码均为手机号
-      const ownerPhone = app.contactPhone || ''
-      let appAccount = null
-      try {
-        appAccount = await ensureOwnerAppAccount(restaurantId, ownerPhone, { client: tx })
-      } catch (e) {
-        // 手机号缺失时仍允许审核通过，账号可稍后在餐厅详情补建
-        if (e.statusCode !== 400) throw e
-      }
-
       const updated = await tx.onboardingApplication.update({
         where: { id },
         data: {
@@ -142,7 +135,7 @@ router.post('/:id/approve', adminRequired, async (req, res, next) => {
           auditedAt: new Date(),
           rejectReason: ''
         },
-        include: { user: true, auditLogs: true }
+        include: { user: true, restaurant: true, auditLogs: true }
       })
 
       await tx.onboardingAuditLog.create({
@@ -155,23 +148,16 @@ router.post('/:id/approve', adminRequired, async (req, res, next) => {
         }
       })
 
-      return { updated, appAccount }
+      return { updated }
     })
 
-    const payload = mapApp(result.updated)
-    if (result.appAccount) {
-      payload.merchantAppAccount = {
-        username: result.appAccount.username,
-        defaultPasswordHint: '默认密码为店主手机号'
-      }
-    }
-    return success(res, payload, '已通过')
+    return success(res, mapApp(result.updated), '已通过')
   } catch (e) {
     next(e)
   }
 })
 
-router.post('/:id/reject', adminRequired, async (req, res, next) => {
+router.post('/:id/reject', adminRequired, requirePermission('onboarding:review'), async (req, res, next) => {
   try {
     const id = Number(req.params.id)
     const reason = (req.body?.reason || '').trim()

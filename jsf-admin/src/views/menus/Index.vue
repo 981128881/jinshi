@@ -1,12 +1,12 @@
 <template>
-  <div class="page-card" v-loading="booting">
+  <div class="page-card page-list" v-loading="booting">
     <div class="toolbar">
       <div class="toolbar-left">
-        <h3 class="page-title">菜单管理</h3>
+        <h3 class="page-title">{{ route.meta.title }}</h3>
         <span v-if="restaurantName" class="restaurant-name">{{ restaurantName }}</span>
       </div>
       <el-select
-        v-if="!userStore.isOrgAdmin"
+        v-if="restaurants.length > 1"
         v-model="restaurantId"
         filterable
         placeholder="选择餐厅"
@@ -17,43 +17,28 @@
     </div>
 
     <el-empty v-if="!restaurantId && !booting" description="请先选择餐厅" />
-    <MenuEditor v-else-if="restaurantId" :restaurant-id="restaurantId" />
+    <MenuEditor v-else-if="restaurantId" :restaurant-id="restaurantId" :pane="pane" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { fetchRestaurants, fetchRestaurant } from '@/api/admin'
+import { fetchRestaurants } from '@/api/admin'
 import MenuEditor from './MenuEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
 
 const booting = ref(true)
 const restaurantId = ref(null)
 const restaurantName = ref('')
 const restaurants = ref([])
+const pane = computed(() => (route.name === 'MenuDishes' ? 'dishes' : 'categories'))
 
 async function resolveRestaurant() {
   booting.value = true
   try {
-    if (userStore.isOrgAdmin) {
-      restaurantId.value = userStore.restaurantId
-      restaurantName.value = userStore.restaurantName || ''
-      if (restaurantId.value) {
-        try {
-          const detail = await fetchRestaurant(restaurantId.value)
-          restaurantName.value = detail.name || restaurantName.value
-        } catch {
-          /* ignore */
-        }
-      }
-      return
-    }
-
     const data = await fetchRestaurants({ page: 1, pageSize: 200, status: 'approved' })
     restaurants.value = data.list || []
     const fromQuery = route.query.restaurantId ? Number(route.query.restaurantId) : null
@@ -73,11 +58,10 @@ function syncName() {
   restaurantName.value = row?.name || ''
 }
 
-watch(restaurantId, (id) => {
-  if (userStore.isOrgAdmin) return
+watch([restaurantId, () => route.path], ([id]) => {
   syncName()
   if (id) {
-    router.replace({ query: { ...route.query, restaurantId: String(id) } })
+    router.replace({ path: route.path, query: { ...route.query, restaurantId: String(id) } })
   }
 })
 
@@ -106,5 +90,9 @@ onMounted(resolveRestaurant)
 .restaurant-name {
   color: #94a3b8;
   font-size: 13px;
+}
+.menu-editor {
+  flex: 1;
+  min-height: 0;
 }
 </style>

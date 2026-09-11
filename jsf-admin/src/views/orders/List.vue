@@ -1,13 +1,15 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
-      <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 140px" @change="loadData">
+      <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 140px">
         <el-option v-for="(item, key) in ORDER_STATUS" :key="key" :label="item.label" :value="Number(key)" />
       </el-select>
-      <el-button type="primary" @click="loadData">查询</el-button>
+      <el-button type="primary" @click="search">查询</el-button>
+      <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="list" v-loading="loading" stripe>
+    <div class="table-fill">
+    <el-table :data="list" v-loading="loading" stripe height="100%">
       <el-table-column prop="id" label="订单号" min-width="160" />
       <el-table-column prop="userPhone" label="联系电话" width="130" />
       <el-table-column label="状态" width="100">
@@ -37,6 +39,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
     <AppPagination v-model:page="query.page" v-model:page-size="query.pageSize" :total="total" @change="loadData" />
   </div>
@@ -66,6 +69,17 @@ async function loadData() {
   } finally {
     loading.value = false
   }
+}
+
+function search() {
+  query.page = 1
+  loadData()
+}
+
+function reset() {
+  query.status = null
+  query.page = 1
+  loadData()
 }
 
 function goDetail(id) {

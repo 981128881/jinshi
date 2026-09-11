@@ -23,7 +23,7 @@ Docker Hub 连不上（国内常见）时用镜像源：
 docker compose -f docker-compose.mirror.yml up -d
 ```
 
-或本机安装 MySQL，见 `docs/SETUP.md`。
+或本机安装 MySQL，见 `docs/SETUP.md`。表用途见 `docs/DATABASE.md`。
 
 ### 2. 安装依赖并初始化数据库
 

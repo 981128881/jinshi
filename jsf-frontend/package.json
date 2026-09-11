@@ -1,0 +1,81 @@
+{
+  "id": "jinshifang",
+  "name": "jinshifang-app",
+  "displayName": "金石菜牌齐市店",
+  "version": "1.0.0",
+  "description": "金石菜牌齐市店到店预约小程序",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-4020420240930001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-4020420240930001",
+    "dayjs": "^1.11.13",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21"
+  },
+  "engines": {
+    "HBuilderX": "^3.99"
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "y",
+        "aliyun": "y"
+      },
+      "client": {
+        "App": {
+          "app-vue": "y",
+          "app-nvue": "n",
+          "app-uvue": "n"
+        },
+        "H5-mobile": {
+          "Safari": "n",
+          "Android Browser": "n",
+          "微信浏览器(Android)": "n",
+          "QQ浏览器(Android)": "n"
+        },
+        "H5-pc": {
+          "Chrome": "n",
+          "IE": "n",
+          "Edge": "n",
+          "Firefox": "n",
+          "Safari": "n"
+        },
+        "小程序": {
+          "微信": "n",
+          "阿里": "n",
+          "百度": "n",
+          "字节跳动": "n",
+          "QQ": "n",
+          "京东": "n",
+          "钉钉": "n",
+          "快手": "n",
+          "飞书": "n"
+        },
+        "快应用": {
+          "华为": "n",
+          "联盟": "n"
+        },
+        "Vue": {
+          "vue2": "y",
+          "vue3": "y"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "test": "node tests/run-tests.mjs"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.4.8",
+    "@dcloudio/uni-cli-shared": "3.0.0-4020420240930001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-4020420240930001",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.8",
+    "sharp": "^0.34.2"
+  }
+}

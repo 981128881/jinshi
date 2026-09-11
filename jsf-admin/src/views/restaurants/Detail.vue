@@ -1,14 +1,18 @@
 <template>
-  <div class="page-card" v-loading="loading">
-    <div class="toolbar">
+  <div class="page-card detail-page" v-loading="loading">
+    <div class="detail-head">
       <div>
-        <el-button v-if="!userStore.isOrgAdmin" @click="$router.push('/restaurants')">返回列表</el-button>
-        <el-button type="primary" plain :loading="qrLoading" @click="openQr">店铺码</el-button>
+        <el-button @click="$router.push('/restaurants')">返回列表</el-button>
+        <div class="title-row">
+          <h2 class="title">{{ form.name || '餐厅详情' }}</h2>
+          <el-tag v-if="form.code" size="small">{{ form.code }}</el-tag>
+          <el-tag :type="form.open ? 'success' : 'info'" size="small">{{ form.open ? '营业中' : '打烊' }}</el-tag>
+        </div>
+        <p v-if="form.address" class="sub">{{ form.address }}</p>
       </div>
-      <div>
+      <div class="head-actions">
         <el-switch v-model="form.open" active-text="营业中" inactive-text="打烊" @change="saveOpen" />
         <el-select
-          v-if="!userStore.isOrgAdmin"
           v-model="form.status"
           style="width: 120px"
           @change="saveStatus"
@@ -17,74 +21,46 @@
           <el-option label="已停用" value="disabled" />
           <el-option label="待审" value="pending" />
         </el-select>
+        <el-button type="primary" plain :loading="qrLoading" @click="openQr">店铺码</el-button>
       </div>
     </div>
 
-    <el-tabs v-model="tab">
-      <el-tab-pane label="基本信息" name="info">
-        <el-form :model="form" label-width="100px" style="max-width: 640px">
-          <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
-          <el-form-item label="品类">
-            <el-select v-model="form.cuisineTypeId" clearable placeholder="选择品类" style="width: 100%">
-              <el-option v-for="c in cuisineTypes" :key="c.id" :label="c.name" :value="c.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
-          <el-form-item label="地址"><el-input v-model="form.address" /></el-form-item>
-          <el-form-item label="简介"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
-          <el-form-item label="Logo URL"><el-input v-model="form.logo" /></el-form-item>
-          <el-form-item label="封面 URL"><el-input v-model="form.coverImage" /></el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="saving" @click="saveInfo">保存资料</el-button>
-            <el-button @click="$router.push({ path: '/menus', query: userStore.isOrgAdmin ? {} : { restaurantId: id } })">
-              去菜单管理
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-tab-pane>
-
-      <el-tab-pane :label="userStore.isOrgAdmin ? '登录账号' : '商家 App 账号'" name="app">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 16px"
-          :title="
-            userStore.isOrgAdmin
-              ? '此账号同时用于运营后台与商家 App：用户名=手机号，默认密码=手机号。'
-              : '每个店主独立账号：默认用户名=手机号，默认密码=手机号。入驻审核通过时自动开通。'
-          "
-        />
-        <el-form :model="appForm" label-width="100px" style="max-width: 480px">
-          <el-form-item label="账号">
-            <el-input v-model="appForm.username" :disabled="userStore.isOrgAdmin" placeholder="默认使用餐厅手机号" />
-          </el-form-item>
-          <el-form-item label="密码">
-            <el-input
-              v-model="appForm.password"
-              type="password"
-              show-password
-              :placeholder="appAccount ? '留空则不修改' : '留空则默认=手机号'"
-            />
-          </el-form-item>
-          <el-form-item v-if="!userStore.isOrgAdmin" label="启用"><el-switch v-model="appForm.enabled" /></el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="appSaving" @click="saveAppAccount">保存账号</el-button>
-            <el-button v-if="!userStore.isOrgAdmin" :loading="appSaving" @click="autoCreateAppAccount">按手机号开通</el-button>
-            <el-button v-if="appAccount" :loading="appSaving" @click="resetAppPassword">重置为手机号密码</el-button>
-            <el-popconfirm
-              v-if="appAccount && !userStore.isOrgAdmin"
-              title="确认删除账号？"
-              @confirm="removeAppAccount"
-            >
-              <template #reference>
-                <el-button type="danger" plain>删除账号</el-button>
-              </template>
-            </el-popconfirm>
-          </el-form-item>
-        </el-form>
-      </el-tab-pane>
-    </el-tabs>
+    <div class="detail-grid">
+          <div>
+            <div class="detail-cover">
+              <el-image v-if="form.coverImage" :src="form.coverImage" fit="cover">
+                <template #error><div class="cover-empty">封面加载失败</div></template>
+              </el-image>
+              <div v-else class="cover-empty">暂无封面</div>
+            </div>
+            <div v-if="form.logo" class="logo-row">
+              <el-image :src="form.logo" fit="cover" class="logo-preview">
+                <template #error><span /></template>
+              </el-image>
+              <span>Logo</span>
+            </div>
+          </div>
+          <el-form :model="form" label-width="88px" class="detail-form">
+            <el-form-item label="门店ID"><el-input v-model="form.code" disabled /></el-form-item>
+            <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
+            <el-form-item label="品类">
+              <el-select v-model="form.cuisineTypeId" clearable placeholder="选择品类" style="width: 100%">
+                <el-option v-for="c in cuisineTypes" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
+            <el-form-item label="地址"><el-input v-model="form.address" /></el-form-item>
+            <el-form-item label="简介"><el-input v-model="form.description" type="textarea" :rows="3" /></el-form-item>
+            <el-form-item label="Logo URL"><el-input v-model="form.logo" /></el-form-item>
+            <el-form-item label="封面 URL"><el-input v-model="form.coverImage" /></el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="saving" @click="saveInfo">保存资料</el-button>
+              <el-button @click="$router.push({ path: '/menus', query: { restaurantId: id } })">
+                去菜单管理
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
 
     <el-dialog v-model="qrVisible" title="店铺码" width="420px" append-to-body>
       <div class="qr-box" v-loading="qrLoading">
@@ -103,34 +79,26 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useUserStore } from '@/stores/user'
 import {
   fetchRestaurant,
   updateRestaurant,
   updateRestaurantOpen,
   updateRestaurantStatus,
-  saveRestaurantAppAccount,
-  ensureRestaurantAppAccount,
-  resetRestaurantAppPassword,
-  deleteRestaurantAppAccount,
   fetchCuisineTypes,
   fetchRestaurantWxaCode
 } from '@/api/admin'
 
 const route = useRoute()
-const userStore = useUserStore()
 const id = computed(() => route.params.id)
 const loading = ref(false)
 const saving = ref(false)
-const appSaving = ref(false)
 const qrVisible = ref(false)
 const qrLoading = ref(false)
 const qrUrl = ref('')
-const tab = ref('info')
 const cuisineTypes = ref([])
-const appAccount = ref(null)
 
 const form = reactive({
+  code: '',
   name: '',
   cuisineTypeId: null,
   phone: '',
@@ -142,13 +110,12 @@ const form = reactive({
   status: 'approved'
 })
 
-const appForm = reactive({ username: '', password: '', enabled: true })
-
 async function loadAll() {
   loading.value = true
   try {
     const [detail, cuisines] = await Promise.all([fetchRestaurant(id.value), fetchCuisineTypes()])
     Object.assign(form, {
+      code: detail.code || '',
       name: detail.name,
       cuisineTypeId: detail.cuisineTypeId,
       phone: detail.phone,
@@ -159,10 +126,6 @@ async function loadAll() {
       open: detail.open,
       status: detail.status
     })
-    appAccount.value = detail.appAccount || null
-    appForm.username = detail.appAccount?.username || ''
-    appForm.enabled = detail.appAccount?.enabled !== false
-    appForm.password = ''
     cuisineTypes.value = cuisines || []
   } finally {
     loading.value = false
@@ -187,62 +150,6 @@ async function saveOpen(open) {
 async function saveStatus(status) {
   await updateRestaurantStatus(id.value, status)
   ElMessage.success('状态已更新')
-}
-
-async function saveAppAccount() {
-  appSaving.value = true
-  try {
-    const payload = { username: appForm.username, enabled: appForm.enabled }
-    if (appForm.password) payload.password = appForm.password
-    if (!appAccount.value && !appForm.password && !appForm.username) {
-      appAccount.value = await ensureRestaurantAppAccount(id.value)
-    } else if (!appAccount.value && !appForm.password && appForm.username) {
-      appAccount.value = await saveRestaurantAppAccount(id.value, {
-        username: appForm.username,
-        enabled: appForm.enabled
-      })
-    } else {
-      appAccount.value = await saveRestaurantAppAccount(id.value, payload)
-    }
-    appForm.username = appAccount.value.username || appForm.username
-    appForm.password = ''
-    ElMessage.success(appAccount.value.defaultPasswordHint || 'App 账号已保存')
-  } finally {
-    appSaving.value = false
-  }
-}
-
-async function autoCreateAppAccount() {
-  appSaving.value = true
-  try {
-    appAccount.value = await ensureRestaurantAppAccount(id.value)
-    appForm.username = appAccount.value.username || ''
-    appForm.enabled = appAccount.value.enabled !== false
-    appForm.password = ''
-    ElMessage.success(appAccount.value.defaultPasswordHint || '已按手机号开通')
-  } finally {
-    appSaving.value = false
-  }
-}
-
-async function resetAppPassword() {
-  appSaving.value = true
-  try {
-    appAccount.value = await resetRestaurantAppPassword(id.value)
-    appForm.username = appAccount.value.username || appForm.username
-    appForm.password = ''
-    ElMessage.success(appAccount.value.defaultPasswordHint || '密码已重置为手机号')
-  } finally {
-    appSaving.value = false
-  }
-}
-
-async function removeAppAccount() {
-  await deleteRestaurantAppAccount(id.value)
-  appAccount.value = null
-  appForm.username = ''
-  appForm.password = ''
-  ElMessage.success('已删除')
 }
 
 async function openQr() {
@@ -277,16 +184,23 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.toolbar {
+.logo-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 13px;
 }
-.toolbar > div {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.logo-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+.detail-form {
+  max-width: 640px;
 }
 .qr-box {
   text-align: center;

@@ -20,26 +20,45 @@ const restaurantsRoutes = require('./routes/restaurants')
 const reservationsRoutes = require('./routes/reservations')
 const merchantRoutes = require('./routes/merchant')
 const adminOnboardingRoutes = require('./routes/adminOnboarding')
-const merchantAppRoutes = require('./routes/merchantApp')
 const adminRestaurantsRoutes = require('./routes/adminRestaurants')
 const adminCuisineTypesRoutes = require('./routes/adminCuisineTypes')
 const adminReservationsRoutes = require('./routes/adminReservations')
 
 const app = express()
 
-// 小程序请求对 304/ETag 支持差，API 一律返回完整 200
+app.set('trust proxy', 1)
 app.set('etag', false)
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store')
   next()
 })
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff')
+  res.set('X-Frame-Options', 'DENY')
+  res.set('Referrer-Policy', 'no-referrer')
+  next()
+})
 
-app.use(cors())
+function corsOrigins() {
+  const listed = String(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (listed.length) return listed
+  if (process.env.NODE_ENV !== 'production') return true
+  const pub = process.env.PUBLIC_BASE_URL || ''
+  return [pub, pub.replace('://api.', '://admin.')].filter(Boolean)
+}
+
+app.use(
+  cors({
+    origin: corsOrigins(),
+    credentials: true
+  })
+)
 app.use(httpLogger)
 
-app.use('/static/category', express.static(path.join(__dirname, '../public/category')))
-app.use('/static/products', express.static(path.join(__dirname, '../public/products')))
-app.use('/static/uploads', express.static(path.join(__dirname, '../public/uploads')))
+app.use('/static', express.static(path.join(__dirname, '../public')))
 
 app.get('/health', async (req, res) => {
   try {
@@ -64,7 +83,6 @@ api.use('/onboarding', onboardingRoutes)
 api.use('/restaurants', restaurantsRoutes)
 api.use('/reservations', reservationsRoutes)
 api.use('/merchant', merchantRoutes)
-api.use('/merchant-app', merchantAppRoutes)
 api.use('/admin/onboarding', adminOnboardingRoutes)
 api.use('/admin/restaurants', adminRestaurantsRoutes)
 api.use('/admin/cuisine-types', adminCuisineTypesRoutes)

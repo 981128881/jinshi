@@ -9,6 +9,16 @@ export const asyncRoutes = [
     meta: { title: '首页', permission: PERMISSION.MENU_DASHBOARD }
   },
   {
+    path: 'onboarding/:id',
+    name: 'OnboardingDetail',
+    component: () => import('@/views/onboarding/Detail.vue'),
+    meta: {
+      title: '入驻详情',
+      permission: PERMISSION.MENU_ONBOARDING,
+      breadcrumb: [{ title: '入驻审核', path: '/onboarding' }]
+    }
+  },
+  {
     path: 'onboarding',
     name: 'Onboarding',
     component: () => import('@/views/onboarding/List.vue'),
@@ -31,10 +41,30 @@ export const asyncRoutes = [
     meta: { title: '餐厅管理', permission: PERMISSION.MENU_RESTAURANTS }
   },
   {
+    path: 'menus/categories',
+    name: 'MenuCategories',
+    component: () => import('@/views/menus/Index.vue'),
+    meta: {
+      title: '分类',
+      permission: PERMISSION.MENU_DISHES,
+      breadcrumb: [{ title: '菜单管理' }]
+    }
+  },
+  {
+    path: 'menus/dishes',
+    name: 'MenuDishes',
+    component: () => import('@/views/menus/Index.vue'),
+    meta: {
+      title: '菜品',
+      permission: PERMISSION.MENU_DISHES,
+      breadcrumb: [{ title: '菜单管理' }]
+    }
+  },
+  {
     path: 'menus',
     name: 'Menus',
-    component: () => import('@/views/menus/Index.vue'),
-    meta: { title: '菜单管理', permission: PERMISSION.MENU_DISHES }
+    redirect: (to) => ({ path: '/menus/categories', query: to.query }),
+    meta: { permission: PERMISSION.MENU_DISHES }
   },
   {
     path: 'cuisine-types',

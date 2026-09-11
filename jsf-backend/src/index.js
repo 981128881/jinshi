@@ -4,7 +4,6 @@ const config = require('./config')
 const prisma = require('./db/prisma')
 const { connectRedis, isRedisReady } = require('./db/redis')
 const { attachAdminWebSocket } = require('./ws/adminWs')
-const { attachMerchantAppWebSocket } = require('./ws/merchantAppWs')
 const { logger, installProcessHandlers, getLogDir } = require('./utils/logger')
 
 installProcessHandlers(async () => {
@@ -13,6 +12,13 @@ installProcessHandlers(async () => {
 
 async function bootstrap() {
   logger.info('服务启动中…', { logDir: getLogDir() })
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev-secret') {
+      logger.fatal('生产环境必须设置 JWT_SECRET')
+      process.exit(1)
+    }
+  }
 
   try {
     await prisma.$connect()
@@ -26,7 +32,19 @@ async function bootstrap() {
     const { ensureDefaultAdmin } = require('./services/adminUser')
     await ensureDefaultAdmin()
   } catch (e) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.fatal('初始化管理员账号失败', e)
+      process.exit(1)
+    }
     logger.warn('初始化管理员账号失败', e)
+  }
+
+  try {
+    const { backfillRestaurantCodes } = require('./utils/restaurantCode')
+    const n = await backfillRestaurantCodes()
+    if (n) logger.info('已补全门店编号', { count: n })
+  } catch (e) {
+    logger.warn('补全门店编号失败', e)
   }
 
   await connectRedis()
@@ -35,7 +53,6 @@ async function bootstrap() {
   server.requestTimeout = Number(process.env.SERVER_REQUEST_TIMEOUT_MS) || 60000
   server.headersTimeout = Number(process.env.SERVER_HEADERS_TIMEOUT_MS) || 65000
   attachAdminWebSocket(server)
-  attachMerchantAppWebSocket(server)
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
@@ -50,11 +67,10 @@ async function bootstrap() {
   })
 
   server.listen(config.port, () => {
-    logger.info('锦食坊 API 已启动', {
+    logger.info('金石菜牌 API 已启动', {
       api: `http://localhost:${config.port}/api`,
       health: `http://localhost:${config.port}/health`,
       ws: `ws://localhost:${config.port}/api/admin/ws`,
-      merchantAppWs: `ws://localhost:${config.port}/api/merchant-app/ws`,
       redis: isRedisReady() ? 'enabled' : 'disabled',
       requestTimeoutMs: process.env.REQUEST_TIMEOUT_MS || 30000
     })

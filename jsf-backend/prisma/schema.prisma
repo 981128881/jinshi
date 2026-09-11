@@ -11,7 +11,7 @@ datasource db {
 model User {
   id        Int        @id @default(autoincrement())
   openid    String     @unique @db.VarChar(64)
-  nickname  String     @default("锦食坊用户") @db.VarChar(64)
+  nickname  String     @default("金石菜牌用户") @db.VarChar(64)
   avatar    String     @default("") @db.VarChar(512)
   phone     String     @default("") @db.VarChar(20)
   createdAt DateTime   @default(now())
@@ -24,7 +24,7 @@ model User {
 /// 平台级配置（原单店 ShopConfig）
 model PlatformConfig {
   id                  Int     @id @default(1)
-  name                String  @default("锦食坊") @db.VarChar(128)
+  name                String  @default("金石菜牌齐市店") @db.VarChar(128)
   servicePhone        String  @default("") @db.VarChar(32)
   showBannerSection   Boolean @default(true)
   showCategorySection Boolean @default(true)
@@ -55,6 +55,8 @@ model CuisineType {
 
 model Restaurant {
   id            Int       @id @default(autoincrement())
+  /// 对外门店编号（非数字）
+  code          String?   @unique @db.VarChar(16)
   name          String    @db.VarChar(128)
   logo          String    @default("") @db.VarChar(512)
   coverImage    String    @default("") @db.VarChar(512)
@@ -77,25 +79,11 @@ model Restaurant {
   orders        Order[]
   cartItems     CartItem[]
   application   OnboardingApplication?
-  appAccounts   MerchantAppAccount[]
+  adminUsers    AdminUser[]
 
   @@index([status])
   @@index([cuisineTypeId])
   @@index([open, status])
-}
-
-/// 商家 Android App 登录账号（一账号绑定一家餐厅）
-model MerchantAppAccount {
-  id           Int        @id @default(autoincrement())
-  restaurantId Int
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  username     String     @unique @db.VarChar(64)
-  password     String     @db.VarChar(256)
-  enabled      Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@index([restaurantId])
 }
 
 model RestaurantMember {
@@ -181,6 +169,7 @@ model Dish {
   desc         String       @db.Text
   visible      Boolean      @default(true)
   sort         Int          @default(0)
+  tags         Json         @default("[]")
   cartItems    CartItem[]
   orderItems   OrderItem[]
 
@@ -255,6 +244,8 @@ model AdminUser {
   enabled     Boolean  @default(true)
   isSuper     Boolean  @default(false)
   permissions Json     @default("[]")
+  restaurantId Int?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

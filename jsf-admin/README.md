@@ -30,8 +30,6 @@ npm run dev
 
 浏览器访问：http://localhost:5173
 
-默认账号：`admin` / `admin123`（与后端 `.env` 中 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 一致）
-
 ## 功能模块
 
 | 模块 | 说明 |

@@ -42,7 +42,18 @@ function rotateIfNeeded(filePath) {
   }
 }
 
+function errorToMeta(err) {
+  return {
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+    code: err.code,
+    statusCode: err.statusCode
+  }
+}
+
 function serializeMeta(meta) {
+  if (meta instanceof Error) meta = errorToMeta(meta)
   if (!meta || (typeof meta === 'object' && !Object.keys(meta).length)) return ''
   try {
     return ` ${JSON.stringify(meta)}`
@@ -70,7 +81,7 @@ function writeFiles(level, line, scope = '') {
       fs.appendFileSync(errFile, `${line}\n`, 'utf8')
     }
 
-    if (level === 'info' && line.includes('"type":"http"')) {
+    if (line.includes('"type":"http"')) {
       const accessFile = todayFile('access')
       rotateIfNeeded(accessFile)
       fs.appendFileSync(accessFile, `${line}\n`, 'utf8')
@@ -100,17 +111,18 @@ function writeConsole(level, line) {
 }
 
 function normalizeInput(message, meta) {
+  const extra = meta instanceof Error ? errorToMeta(meta) : meta
   if (message instanceof Error) {
     return {
       message: message.message,
       meta: {
-        ...meta,
+        ...extra,
         name: message.name,
         stack: message.stack
       }
     }
   }
-  return { message: String(message), meta }
+  return { message: String(message), meta: extra }
 }
 
 function createLogger(scope = '') {
@@ -174,5 +186,19 @@ module.exports = {
   createLogger,
   logHttp,
   installProcessHandlers,
-  getLogDir: () => config.dir
+  getLogDir: () => config.dir,
+  errorToMeta
+}
+
+if (require.main === module) {
+  const assert = require('assert')
+  const err = new Error('boom')
+  err.code = 'ECONNRESET'
+  const line = formatLine('fatal', 'uncaughtException', err, '')
+  assert.match(line, /boom/)
+  assert.match(line, /ECONNRESET/)
+  assert.match(line, /logger\.js/)
+  const httpLine = formatLine('error', 'GET /x 500 12ms', { type: 'http', status: 500 }, '')
+  assert.match(httpLine, /"type":"http"/)
+  console.log('ok')
 }

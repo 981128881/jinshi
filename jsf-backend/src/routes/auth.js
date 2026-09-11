@@ -30,6 +30,9 @@ router.get('/wx-status', (req, res) => {
 
 router.post('/wx-login', async (req, res, next) => {
   try {
+    if (!config.wx.mock && (!config.wx.appId || !config.wx.secret)) {
+      return fail(res, 503, '服务器未配置微信登录，请填写 WX_APPID / WX_SECRET 后重启', 503)
+    }
     const { code } = req.body || {}
     if (!code) return fail(res, 400, '缺少 code')
 
@@ -45,6 +48,9 @@ router.post('/wx-login', async (req, res, next) => {
 
 router.post('/phone-login', async (req, res, next) => {
   try {
+    if (!config.wx.mock && (!config.wx.appId || !config.wx.secret)) {
+      return fail(res, 503, '服务器未配置微信登录，请填写 WX_APPID / WX_SECRET 后重启', 503)
+    }
     const { loginCode, phoneCode } = req.body || {}
     if (!loginCode || !phoneCode) return fail(res, 400, '缺少 loginCode 或 phoneCode')
 
@@ -54,7 +60,7 @@ router.post('/phone-login', async (req, res, next) => {
 
     const user = await prisma.user.upsert({
       where: { openid },
-      create: { openid, nickname: '锦食坊用户', phone },
+      create: { openid, nickname: '金石菜牌用户', phone },
       update: { phone }
     })
 
@@ -67,7 +73,7 @@ router.post('/phone-login', async (req, res, next) => {
 /** 开发环境模拟登录，便于本地联调 */
 router.post('/dev-login', async (req, res, next) => {
   try {
-    if (process.env.NODE_ENV === 'production' && process.env.DEV_LOGIN !== 'true') {
+    if (process.env.DEV_LOGIN !== 'true') {
       return fail(res, 403, '开发登录未启用', 403)
     }
     const openid = 'dev_mock_openid'

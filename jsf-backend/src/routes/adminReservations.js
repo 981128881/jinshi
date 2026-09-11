@@ -3,8 +3,8 @@ const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { adminRequired, assertOrgRestaurantAccess } = require('../middleware/adminAuth')
 const { requirePermission } = require('../middleware/adminPermission')
-const { isOrgAdmin } = require('../constants/adminPermissions')
 const { resolvePublicUrl } = require('../utils/publicUrl')
+const { pageTake, pageSkip } = require('../utils/pager')
 
 const router = express.Router()
 router.use(adminRequired)
@@ -49,12 +49,12 @@ function formatOrder(o) {
 router.get('/', requirePermission('menu:reservations'), async (req, res, next) => {
   try {
     const { status, restaurantId, keyword, page = 1, pageSize = 10, dateFrom, dateTo } = req.query
-    const take = Number(pageSize) || 10
-    const skip = ((Number(page) || 1) - 1) * take
+    const take = pageTake(pageSize)
+    const skip = pageSkip(page, take)
     const where = {}
     if (status) where.status = String(status)
 
-    if (isOrgAdmin(req.admin)) {
+    if (req.admin.restaurantId) {
       where.restaurantId = Number(req.admin.restaurantId)
     } else if (restaurantId) {
       where.restaurantId = Number(restaurantId)

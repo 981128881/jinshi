@@ -1,10 +1,12 @@
 <template>
-  <div class="page-card">
-    <el-table :data="list" v-loading="loading" stripe>
+  <div class="page-card page-list">
+    <div class="table-fill">
+    <el-table :data="list" v-loading="loading" stripe height="100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="nickname" label="昵称" />
       <el-table-column prop="phone" label="手机号" width="140" />
     </el-table>
+    </div>
 
     <AppPagination v-model:page="query.page" v-model:page-size="query.pageSize" :total="total" @change="loadData" />
   </div>

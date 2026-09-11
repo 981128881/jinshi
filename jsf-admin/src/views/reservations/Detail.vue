@@ -1,8 +1,15 @@
 <template>
-  <div class="page-card" v-loading="loading">
-    <div class="toolbar">
-      <el-button @click="$router.push('/reservations')">返回列表</el-button>
-      <div class="actions">
+  <div class="page-card detail-page" v-loading="loading">
+    <div class="detail-head">
+      <div>
+        <el-button @click="$router.push('/reservations')">返回列表</el-button>
+        <div v-if="detail" class="title-row">
+          <h2 class="title">预约 {{ detail.id }}</h2>
+          <el-tag size="small" :type="statusTagType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
+        </div>
+        <p v-if="detail" class="sub">{{ detail.restaurantName }} · {{ formatTime(detail.reserveAt) }}</p>
+      </div>
+      <div class="head-actions">
         <el-button v-if="can('accepted')" type="primary" @click="setStatus('accepted')">接单</el-button>
         <el-button v-if="can('ready')" type="success" @click="setStatus('ready')">制作完成</el-button>
         <el-button v-if="can('completed')" type="success" @click="setStatus('completed')">完成取餐</el-button>
@@ -73,6 +80,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import { fetchReservationDetail, updateReservationStatus } from '@/api/admin'
 
 const NEXT = {
@@ -136,6 +144,9 @@ async function loadData() {
 }
 
 async function setStatus(status) {
+  if (status === 'cancelled') {
+    if (!(await confirmAction('确定取消该预约？', '取消预约', '取消预约'))) return
+  }
   detail.value = await updateReservationStatus(orderId.value, status)
   ElMessage.success('状态已更新')
 }
@@ -145,20 +156,6 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .info-block {
   margin-bottom: 20px;
 }

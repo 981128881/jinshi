@@ -1,11 +1,17 @@
 const config = require('../config')
 
+// 微信 <image> 不支持 svg；种子图已落成同名 png
+function toWechatImagePath(p) {
+  return String(p).replace(/(\/static\/(?:shop|dish)\/[^/?#]+)\.svg$/i, '$1.png')
+}
+
 function resolvePublicUrl(pathOrUrl) {
   if (!pathOrUrl) return ''
-  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl
+  const path = toWechatImagePath(pathOrUrl)
+  if (/^https?:\/\//i.test(path)) return path
   const base = (config.publicBaseUrl || '').replace(/\/$/, '')
-  if (!base) return pathOrUrl
-  return pathOrUrl.startsWith('/') ? `${base}${pathOrUrl}` : `${base}/${pathOrUrl}`
+  if (!base) return path
+  return path.startsWith('/') ? `${base}${path}` : `${base}/${path}`
 }
 
 function toStoredPath(pathOrUrl) {
@@ -17,4 +23,13 @@ function toStoredPath(pathOrUrl) {
   return pathOrUrl
 }
 
-module.exports = { resolvePublicUrl, toStoredPath }
+module.exports = { resolvePublicUrl, toStoredPath, toWechatImagePath }
+
+if (require.main === module) {
+  const got = toWechatImagePath('/static/shop/shop-2.svg')
+  if (got !== '/static/shop/shop-2.png') {
+    console.error('toWechatImagePath failed', got)
+    process.exit(1)
+  }
+  console.log('ok')
+}

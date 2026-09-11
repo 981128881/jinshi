@@ -1,10 +1,11 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
       <span></span>
       <el-button type="primary" @click="openCreate">新增品类</el-button>
     </div>
-    <el-table :data="list" v-loading="loading" stripe>
+    <div class="table-fill">
+    <el-table :data="paged" v-loading="loading" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="icon" label="图标" width="100" />
@@ -18,12 +19,12 @@
       <el-table-column label="操作" width="160">
         <template #default="{ row }">
           <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="handleDelete(row.id)">
-            <template #reference><el-button link type="danger">删除</el-button></template>
-          </el-popconfirm>
+          <el-button link type="danger" @click="handleDelete(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
+    </div>
+    <AppPagination v-model:page="page" v-model:page-size="pageSize" :total="total" />
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑品类' : '新增品类'" width="420px">
       <el-form :model="form" label-width="80px">
@@ -43,11 +44,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import { fetchCuisineTypes, createCuisineType, updateCuisineType, deleteCuisineType } from '@/api/admin'
+import AppPagination from '@/components/AppPagination.vue'
+import { useClientPager } from '@/composables/useClientPager'
 
 const loading = ref(false)
 const saving = ref(false)
 const list = ref([])
+const { page, pageSize, total, paged } = useClientPager(list)
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const form = reactive({ name: '', icon: '', sort: 0, visible: true })
@@ -88,6 +93,7 @@ async function handleSave() {
 }
 
 async function handleDelete(id) {
+  if (!(await confirmAction('确定删除该品类？', '删除确认', '删除'))) return
   await deleteCuisineType(id)
   ElMessage.success('已删除')
   loadData()

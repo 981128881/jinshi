@@ -12,6 +12,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { confirmAction } from '@/utils/confirm'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -20,7 +21,8 @@ function goHome() {
   router.replace(userStore.getHomePath())
 }
 
-function goLogin() {
+async function goLogin() {
+  if (!(await confirmAction('确定退出并重新登录？', '重新登录', '退出'))) return
   userStore.logout()
 }
 </script>

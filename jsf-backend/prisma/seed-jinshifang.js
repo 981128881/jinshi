@@ -1,5 +1,5 @@
 /**
- * 锦食坊初始化种子：平台配置 + 示例品类
+ * 金石菜牌齐市店初始化种子：平台配置 + 示例品类
  * 用法：
  *   node prisma/seed-jinshifang.js
  *   node prisma/seed-merchants.js
@@ -12,13 +12,13 @@ async function main() {
     where: { id: 1 },
     create: {
       id: 1,
-      name: '锦食坊',
+      name: '金石菜牌齐市店',
       servicePhone: '400-888-8888',
       showBannerSection: true,
       showCategorySection: true,
       showRecommendSection: true
     },
-    update: { name: '锦食坊' }
+    update: { name: '金石菜牌齐市店' }
   })
 
   const cuisines = ['中餐', '火锅', '烧烤', '小吃快餐', '西餐', '甜品饮品']

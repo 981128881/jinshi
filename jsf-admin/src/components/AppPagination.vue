@@ -36,7 +36,7 @@ function handleCurrentChange() {
 
 <style scoped>
 .app-pagination {
-  margin-top: 16px;
+  margin-top: 8px;
   justify-content: flex-end;
 }
 </style>

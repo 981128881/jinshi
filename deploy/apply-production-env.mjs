@@ -91,22 +91,8 @@ function pickFrontendEnv(envText) {
   return `VITE_API_BASE=${map.VITE_API_BASE || ''}\n`
 }
 
-function patchAndroid(domain, apiBase) {
-  const file = path.join(
-    ROOT,
-    'wxapp-merchant-android/app/src/main/java/com/wxapp/merchant/data/AuthStore.kt'
-  )
-  if (!fs.existsSync(file)) return
-  let src = fs.readFileSync(file, 'utf8')
-  src = src.replace(
-    /const val DEFAULT_API_BASE_URL = "https?:\/\/[^"]+"/,
-    `const val DEFAULT_API_BASE_URL = "${apiBase}"`
-  )
-  writeIfChanged(file, src)
-}
-
 function patchFrontendConfig(apiBase) {
-  const file = path.join(ROOT, 'wxapp-frontend/config/index.js')
+  const file = path.join(ROOT, 'jsf-frontend/config/index.js')
   let src = fs.readFileSync(file, 'utf8')
   src = src.replace(
     /baseUrl: 'https:\/\/api\.[^']+\/api'/,
@@ -181,19 +167,18 @@ function main() {
   console.log(`\n应用生产环境域名: ${domain}\n`)
 
   writeIfChanged(path.join(ROOT, 'deploy/production.env'), template)
-  writeIfChanged(path.join(ROOT, 'wxapp-backend/.env.production'), pickBackendEnv(template))
-  writeIfChanged(path.join(ROOT, 'wxapp-admin/.env.production'), pickAdminEnv(template))
-  writeIfChanged(path.join(ROOT, 'wxapp-frontend/.env.production'), pickFrontendEnv(template))
+  writeIfChanged(path.join(ROOT, 'jsf-backend/.env.production'), pickBackendEnv(template))
+  writeIfChanged(path.join(ROOT, 'jsf-admin/.env.production'), pickAdminEnv(template))
+  writeIfChanged(path.join(ROOT, 'jsf-frontend/.env.production'), pickFrontendEnv(template))
 
   patchFrontendConfig(apiBase)
-  patchAndroid(domain, map.MERCHANT_API_BASE || apiBase)
   patchPosSyncProduction(template, domain)
 
   console.log('\n完成。下一步:')
   console.log('  1. 检查 deploy/production.env 中的 CHANGE_ME 项')
-  console.log('  2. 服务器上: cp wxapp-backend/.env.production wxapp-backend/.env  (或 NODE_ENV=production npm start)')
-  console.log('  3. 管理后台: cd wxapp-admin && npm run build')
-  console.log('  4. 小程序: cd wxapp-frontend && npm run build:mp-weixin')
+  console.log('  2. 服务器上: 在 jsf-backend/.env 增加 PUBLIC_BASE_URL=https://api.' + domain)
+  console.log('  3. 管理后台: cd jsf-admin && npm run build')
+  console.log('  4. 小程序: cd jsf-frontend && npm run build:mp-weixin')
   console.log('  5. 微信后台配置 request 合法域名: api.' + domain)
 }
 

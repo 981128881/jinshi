@@ -260,7 +260,10 @@ client.interceptors.response.use(
     if (status === 401) {
       const retried = await tryRefreshAndRetry(reqConfig)
       if (retried) return retried
-      if (showError && reqConfig.requireAuth !== false) handleUnauthorized(bodyMsg)
+      if (showError) {
+        if (reqConfig.requireAuth !== false) handleUnauthorized(bodyMsg)
+        else ElMessage.error(bodyMsg || '用户名或密码错误')
+      }
       logRequestError(reqConfig, error, duration)
       return Promise.reject(new HttpError(401, bodyMsg || httpStatusMessage(401), body))
     }

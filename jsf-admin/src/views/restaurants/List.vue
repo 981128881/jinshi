@@ -1,12 +1,13 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
       <el-form :inline="true" @submit.prevent>
         <el-form-item>
-          <el-input v-model="query.keyword" placeholder="名称/电话/地址" clearable style="width: 200px" />
+          <el-input v-model="query.keyword" placeholder="门店ID/名称/电话/地址" clearable style="width: 220px" />
         </el-form-item>
         <el-form-item>
-          <el-select v-model="query.status" clearable placeholder="状态" style="width: 140px">
+          <el-select v-model="query.status" style="width: 140px">
+            <el-option label="全部" value="all" />
             <el-option label="已通过" value="approved" />
             <el-option label="待审" value="pending" />
             <el-option label="已停用" value="disabled" />
@@ -14,13 +15,17 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="loadData">查询</el-button>
+          <el-button type="primary" @click="search">查询</el-button>
+          <el-button @click="reset">重置</el-button>
         </el-form-item>
       </el-form>
     </div>
 
-    <el-table :data="list" v-loading="loading" stripe>
-      <el-table-column prop="id" label="ID" width="70" />
+    <div class="table-fill">
+    <el-table :data="list" v-loading="loading" stripe height="100%">
+      <el-table-column prop="code" label="门店ID" width="120">
+        <template #default="{ row }">{{ row.code || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="name" label="餐厅" min-width="140" />
       <el-table-column prop="cuisineName" label="品类" width="100" />
       <el-table-column prop="phone" label="电话" width="120" />
@@ -43,31 +48,29 @@
         </template>
       </el-table-column>
     </el-table>
-
-    <div class="pager">
-      <el-pagination
-        v-model:current-page="query.page"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        layout="total, prev, pager, next"
-        @current-change="loadData"
-      />
     </div>
+
+    <AppPagination
+      v-model:page="query.page"
+      v-model:page-size="query.pageSize"
+      :total="total"
+      @change="loadData"
+    />
   </div>
 </template>
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
 import { fetchRestaurants } from '@/api/admin'
-import { useUserStore } from '@/stores/user'
+import AppPagination from '@/components/AppPagination.vue'
+import { DEFAULT_PAGE_SIZE } from '@/constants/pagination'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const userStore = useUserStore()
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
-const query = reactive({ keyword: '', status: '', page: 1, pageSize: 10 })
+const query = reactive({ keyword: '', status: 'all', page: 1, pageSize: DEFAULT_PAGE_SIZE })
 
 function statusLabel(s) {
   return { approved: '已通过', pending: '待审', disabled: '已停用', rejected: '已驳回', draft: '草稿' }[s] || s
@@ -78,10 +81,27 @@ function goDetail(id) {
   router.push(`/restaurants/${encodeURIComponent(String(id))}`)
 }
 
+function search() {
+  query.page = 1
+  loadData()
+}
+
+function reset() {
+  query.keyword = ''
+  query.status = 'all'
+  query.page = 1
+  loadData()
+}
+
 async function loadData() {
   loading.value = true
   try {
-    const data = await fetchRestaurants({ ...query })
+    const data = await fetchRestaurants({
+      keyword: query.keyword,
+      page: query.page,
+      pageSize: query.pageSize,
+      ...(query.status && query.status !== 'all' ? { status: query.status } : {})
+    })
     list.value = data.list || []
     total.value = data.total || 0
   } finally {
@@ -90,14 +110,7 @@ async function loadData() {
 }
 
 onMounted(() => {
-  if (userStore.isOrgAdmin && userStore.restaurantId) {
-    router.replace(`/restaurants/${userStore.restaurantId}`)
-    return
-  }
   loadData()
 })
 </script>
 
-<style scoped>
-.pager { margin-top: 16px; display: flex; justify-content: flex-end; }
-</style>

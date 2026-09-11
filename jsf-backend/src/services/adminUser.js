@@ -14,7 +14,10 @@ function formatAdminUser(row) {
     username: row.username,
     nickname: row.nickname || row.username,
     enabled: row.enabled,
-    isSuper: row.isSuper,
+    isSuper: !!row.isSuper && !row.restaurantId,
+    restaurantId: row.restaurantId || null,
+    restaurantName: row.restaurant?.name || '',
+    orgType: row.restaurantId ? 'restaurant' : 'platform',
     permissions: getEffectivePermissions(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
@@ -22,8 +25,15 @@ function formatAdminUser(row) {
 }
 
 async function ensureDefaultAdmin() {
-  const existing = await prisma.adminUser.findFirst()
+  const existing = await prisma.adminUser.findUnique({
+    where: { username: config.admin.username }
+  })
   if (existing) return existing
+  if (process.env.NODE_ENV === 'production' && (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD === 'admin123')) {
+    const err = new Error('生产环境首次创建管理员必须设置非默认 ADMIN_PASSWORD')
+    err.statusCode = 500
+    throw err
+  }
 
   return prisma.adminUser.create({
     data: {
@@ -39,7 +49,10 @@ async function ensureDefaultAdmin() {
 
 async function findAdminByUsername(username) {
   if (!username) return null
-  return prisma.adminUser.findUnique({ where: { username } })
+  return prisma.adminUser.findUnique({
+    where: { username },
+    include: { restaurant: { select: { id: true, name: true } } }
+  })
 }
 
 async function authenticateAdmin(username, password) {
@@ -70,12 +83,26 @@ async function getAdminProfile(username) {
 }
 
 async function listAdminUsers() {
-  const rows = await prisma.adminUser.findMany({ orderBy: { id: 'asc' } })
+  const rows = await prisma.adminUser.findMany({
+    orderBy: { id: 'asc' },
+    include: { restaurant: { select: { id: true, name: true } } }
+  })
   return rows.map(formatAdminUser)
 }
 
-async function createAdminUser({ username, password, nickname, enabled = true, isSuper = false, permissions = [] }) {
-  const exists = await prisma.adminUser.findUnique({ where: { username } })
+async function createAdminUser({ username, password, nickname, enabled = true, isSuper = false, permissions = [] }, operator) {
+  const name = String(username || '').trim()
+  if (!name || name.length < 2 || name.length > 64) {
+    const err = new Error('用户名长度 2-64')
+    err.statusCode = 400
+    throw err
+  }
+  if (isSuper && !operator?.isSuper) {
+    const err = new Error('只有超级管理员可以创建超管')
+    err.statusCode = 403
+    throw err
+  }
+  const exists = await prisma.adminUser.findUnique({ where: { username: name } })
   if (exists) {
     const err = new Error('用户名已存在')
     err.statusCode = 400
@@ -89,9 +116,9 @@ async function createAdminUser({ username, password, nickname, enabled = true, i
 
   const row = await prisma.adminUser.create({
     data: {
-      username,
+      username: name,
       password: hashPassword(password),
-      nickname: nickname || username,
+      nickname: nickname || name,
       enabled: enabled !== false,
       isSuper: !!isSuper,
       permissions: isSuper ? ALL_PERMISSION_CODES : normalizePermissions(permissions)
@@ -118,6 +145,12 @@ async function updateAdminUser(id, { password, nickname, enabled, isSuper, permi
   if (existing.isSuper && superCount <= 1 && enabled === false) {
     const err = new Error('至少保留一个可用的超级管理员')
     err.statusCode = 400
+    throw err
+  }
+
+  if (isSuper != null && !operator?.isSuper) {
+    const err = new Error('只有超级管理员可以改超管标记')
+    err.statusCode = 403
     throw err
   }
 

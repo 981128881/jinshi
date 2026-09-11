@@ -1,11 +1,12 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
       <div class="toolbar-title">管理员账号</div>
       <el-button v-permission="PERMISSION.ADMIN_CREATE" type="primary" @click="openCreate">新增管理员</el-button>
     </div>
 
-    <el-table :data="list" v-loading="loading" stripe>
+    <div class="table-fill">
+    <el-table :data="paged" v-loading="loading" stripe height="100%">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="username" label="用户名" width="140" />
       <el-table-column prop="nickname" label="昵称" width="140" />
@@ -39,18 +40,20 @@
           >
             编辑
           </el-button>
-          <el-popconfirm
+          <el-button
             v-if="!row.isSuper"
-            title="确认删除该管理员？"
-            @confirm="handleDelete(row.id)"
+            v-permission="PERMISSION.ADMIN_DELETE"
+            link
+            type="danger"
+            @click="handleDelete(row.id)"
           >
-            <template #reference>
-              <el-button v-permission="PERMISSION.ADMIN_DELETE" link type="danger">删除</el-button>
-            </template>
-          </el-popconfirm>
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
+    </div>
+    <AppPagination v-model:page="page" v-model:page-size="pageSize" :total="total" />
 
     <el-dialog
       v-model="dialogVisible"
@@ -108,6 +111,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import { PERMISSION } from '@/constants/permissions'
 import {
   fetchAdminUsers,
@@ -117,11 +121,14 @@ import {
   deleteAdminUser
 } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
+import AppPagination from '@/components/AppPagination.vue'
+import { useClientPager } from '@/composables/useClientPager'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const saving = ref(false)
 const list = ref([])
+const { page, pageSize, total, paged } = useClientPager(list)
 const permissionTree = ref([])
 const dialogVisible = ref(false)
 const editingId = ref(null)
@@ -262,6 +269,7 @@ async function handleSubmit() {
 }
 
 async function handleDelete(id) {
+  if (!(await confirmAction('确定删除该管理员？', '删除确认', '删除'))) return
   await deleteAdminUser(id, { loading: true })
   ElMessage.success('已删除')
   loadData()

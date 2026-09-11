@@ -9,7 +9,15 @@ export const MENU_ITEMS = [
   { path: '/cuisine-types', title: '品类管理', icon: 'Menu', permission: PERMISSION.MENU_CUISINE_TYPES },
   { path: '/reservations', title: '预约单', icon: 'List', permission: PERMISSION.MENU_RESERVATIONS },
   { path: '/restaurants', title: '我的门店', icon: 'Shop', permission: PERMISSION.MENU_RESTAURANTS },
-  { path: '/menus', title: '菜单管理', icon: 'Dish', permission: PERMISSION.MENU_DISHES },
+  {
+    title: '菜单管理',
+    icon: 'Dish',
+    permission: PERMISSION.MENU_DISHES,
+    children: [
+      { path: '/menus/categories', title: '分类', permission: PERMISSION.MENU_DISHES },
+      { path: '/menus/dishes', title: '菜品', permission: PERMISSION.MENU_DISHES }
+    ]
+  },
   { path: '/banners', title: '轮播管理', icon: 'Picture', permission: PERMISSION.MENU_BANNERS },
   { path: '/users', title: '用户管理', icon: 'User', permission: PERMISSION.MENU_USERS },
   {

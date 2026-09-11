@@ -1,4 +1,4 @@
-/** 管理后台权限树（菜单 + 按钮）— 锦食坊餐厅平台 */
+/** 管理后台权限树（菜单 + 按钮）— 金石菜牌齐市店 */
 
 /** 平台运营权限树 */
 const PERMISSION_TREE = [
@@ -17,10 +17,7 @@ const PERMISSION_TREE = [
     code: 'menu:restaurants',
     name: '餐厅管理',
     type: 'menu',
-    children: [
-      { code: 'restaurant:edit', name: '编辑餐厅', type: 'button' },
-      { code: 'restaurant:app-account', name: '商家 App 账号', type: 'button' }
-    ]
+    children: [{ code: 'restaurant:edit', name: '编辑餐厅', type: 'button' }]
   },
   {
     code: 'menu:dishes',
@@ -81,39 +78,6 @@ const PERMISSION_TREE = [
   }
 ]
 
-/**
- * 门店组织权限树（店主）
- * — 首页、预约单、我的门店、菜单管理
- */
-const ORG_PERMISSION_TREE = [
-  {
-    code: 'menu:dashboard',
-    name: '首页',
-    type: 'menu'
-  },
-  {
-    code: 'menu:reservations',
-    name: '预约单',
-    type: 'menu',
-    children: [{ code: 'reservation:status', name: '接单/改状态', type: 'button' }]
-  },
-  {
-    code: 'menu:restaurants',
-    name: '我的门店',
-    type: 'menu',
-    children: [
-      { code: 'restaurant:edit', name: '编辑门店', type: 'button' },
-      { code: 'restaurant:app-account', name: '登录账号', type: 'button' }
-    ]
-  },
-  {
-    code: 'menu:dishes',
-    name: '菜单管理',
-    type: 'menu',
-    children: [{ code: 'restaurant:menu', name: '编辑分类/菜品', type: 'button' }]
-  }
-]
-
 function flattenPermissionTree(nodes = PERMISSION_TREE, list = []) {
   for (const node of nodes) {
     list.push(node.code)
@@ -123,7 +87,17 @@ function flattenPermissionTree(nodes = PERMISSION_TREE, list = []) {
 }
 
 const ALL_PERMISSION_CODES = flattenPermissionTree(PERMISSION_TREE)
-const ORG_PERMISSION_CODES = flattenPermissionTree(ORG_PERMISSION_TREE)
+
+/** 商家后台：只看自己的店、菜单、预约单 */
+const MERCHANT_PERMISSION_CODES = [
+  'menu:dashboard',
+  'menu:restaurants',
+  'restaurant:edit',
+  'menu:dishes',
+  'restaurant:menu',
+  'menu:reservations',
+  'reservation:status'
+]
 
 function normalizePermissions(permissions) {
   if (!Array.isArray(permissions)) return []
@@ -132,38 +106,57 @@ function normalizePermissions(permissions) {
 
 function getEffectivePermissions(user) {
   if (!user) return []
-  if (user.orgType === 'restaurant' || user.role === 'merchant_admin') {
-    return [...ORG_PERMISSION_CODES]
-  }
+  if (user.restaurantId) return [...MERCHANT_PERMISSION_CODES]
   if (user.isSuper) return [...ALL_PERMISSION_CODES]
   return normalizePermissions(user.permissions)
 }
 
 function hasPermission(user, code) {
   if (!user) return false
-  if (user.isSuper && user.orgType !== 'restaurant') return true
-  const perms = getEffectivePermissions(user)
-  return perms.includes(code)
+  if (user.isSuper) return true
+  return getEffectivePermissions(user).includes(code)
 }
 
-/** 是否门店组织账号（数据需按 restaurantId 隔离） */
-function isOrgAdmin(user) {
-  return !!(user && (user.orgType === 'restaurant' || user.role === 'merchant_admin') && user.restaurantId)
+function filterPermissionTree(nodes, allow) {
+  const out = []
+  for (const node of nodes) {
+    const children = node.children?.length ? filterPermissionTree(node.children, allow) : []
+    if (allow.has(node.code) || children.length) {
+      out.push(children.length ? { ...node, children } : { ...node })
+    }
+  }
+  return out
 }
 
 function getPermissionTreeForUser(user) {
-  if (isOrgAdmin(user)) return ORG_PERMISSION_TREE
+  if (user?.restaurantId) {
+    return filterPermissionTree(PERMISSION_TREE, new Set(MERCHANT_PERMISSION_CODES))
+  }
   return PERMISSION_TREE
 }
 
 module.exports = {
   PERMISSION_TREE,
-  ORG_PERMISSION_TREE,
   ALL_PERMISSION_CODES,
-  ORG_PERMISSION_CODES,
+  MERCHANT_PERMISSION_CODES,
   normalizePermissions,
   getEffectivePermissions,
   hasPermission,
-  isOrgAdmin,
   getPermissionTreeForUser
+}
+
+if (require.main === module) {
+  const assert = require('assert')
+  const tree = getPermissionTreeForUser({ restaurantId: 1 })
+  const codes = []
+  const walk = (nodes) => {
+    for (const n of nodes) {
+      codes.push(n.code)
+      if (n.children) walk(n.children)
+    }
+  }
+  walk(tree)
+  assert.ok(!codes.includes('menu:onboarding'))
+  assert.ok(codes.includes('menu:restaurants'))
+  console.log('ok')
 }

@@ -5,11 +5,16 @@
  * 可重复执行：已存在的餐厅会更新封面/Logo，并同步分类与菜品（按名称 upsert）
  */
 const { PrismaClient } = require('@prisma/client')
+require('../src/config')
+const { allocRestaurantCode } = require('../src/utils/restaurantCode')
+const { hashPassword } = require('../src/utils/password')
 const prisma = new PrismaClient()
 
+const MERCHANT_SEED_PASSWORD = process.env.MERCHANT_SEED_PASSWORD || 'ChangeMe_jsf'
+
 const img = {
-  shop: (n) => `/static/shop/shop-${n}.svg`,
-  dish: (n) => `/static/dish/d${String(n).padStart(2, '0')}.svg`
+  shop: (n) => `/static/shop/shop-${n}.png`,
+  dish: (n) => `/static/dish/d${String(n).padStart(2, '0')}.png`
 }
 
 const MERCHANTS = [
@@ -309,13 +314,13 @@ async function ensurePlatformAndCuisines() {
     where: { id: 1 },
     create: {
       id: 1,
-      name: '锦食坊',
+      name: '金石菜牌齐市店',
       servicePhone: '400-888-8888',
       showBannerSection: true,
       showCategorySection: true,
       showRecommendSection: true
     },
-    update: { name: '锦食坊' }
+    update: { name: '金石菜牌齐市店' }
   })
 
   const names = ['中餐', '火锅', '烧烤', '小吃快餐', '西餐', '甜品饮品']
@@ -385,6 +390,37 @@ async function syncMenu(restaurantId, categories) {
   }
 }
 
+async function ensureMerchantAdmin(restaurant, phone, shopName) {
+  const username = String(phone || '').trim()
+  if (!username) return
+  const existing = await prisma.adminUser.findUnique({ where: { username } })
+  const password = hashPassword(MERCHANT_SEED_PASSWORD)
+  if (existing) {
+    await prisma.adminUser.update({
+      where: { id: existing.id },
+      data: {
+        restaurantId: restaurant.id,
+        nickname: shopName,
+        enabled: true,
+        isSuper: false,
+        password
+      }
+    })
+    return
+  }
+  await prisma.adminUser.create({
+    data: {
+      username,
+      password,
+      nickname: shopName,
+      enabled: true,
+      isSuper: false,
+      permissions: [],
+      restaurantId: restaurant.id
+    }
+  })
+}
+
 async function seedOne(m) {
   const cuisine = await prisma.cuisineType.findFirst({ where: { name: m.cuisine } })
   if (!cuisine) throw new Error(`缺少品类: ${m.cuisine}`)
@@ -395,6 +431,7 @@ async function seedOne(m) {
     restaurant = await prisma.restaurant.update({
       where: { id: restaurant.id },
       data: {
+        code: restaurant.code || (await allocRestaurantCode()),
         monthlySales: m.monthlySales || 0,
         coverImage: m.coverImage || '',
         logo: m.logo || m.coverImage || '',
@@ -408,6 +445,7 @@ async function seedOne(m) {
       }
     })
     await syncMenu(restaurant.id, m.categories)
+    await ensureMerchantAdmin(restaurant, m.phone, m.name)
     const dishCount = await prisma.dish.count({ where: { restaurantId: restaurant.id } })
     const catCount = await prisma.menuCategory.count({ where: { restaurantId: restaurant.id } })
     console.log(`update: ${m.name} (id=${restaurant.id}, cats=${catCount}, dishes=${dishCount})`)
@@ -429,6 +467,7 @@ async function seedOne(m) {
 
   restaurant = await prisma.restaurant.create({
     data: {
+      code: await allocRestaurantCode(),
       name: m.name,
       cuisineTypeId: cuisine.id,
       phone: m.phone,
@@ -472,6 +511,7 @@ async function seedOne(m) {
   })
 
   await syncMenu(restaurant.id, m.categories)
+  await ensureMerchantAdmin(restaurant, m.phone, m.name)
   console.log(`ok: ${m.name} (id=${restaurant.id}, menu seeded)`)
   return restaurant
 }

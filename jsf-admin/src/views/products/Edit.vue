@@ -107,6 +107,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import appConfig from '@/config/index.js'
 import {
@@ -153,7 +154,8 @@ async function handleUploadImage({ file }) {
   }
 }
 
-function clearImage() {
+async function clearImage() {
+  if (!(await confirmAction('确定删除该图片？', '删除确认', '删除'))) return
   form.image = ''
 }
 

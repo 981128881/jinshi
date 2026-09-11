@@ -6,6 +6,7 @@ const { authRequired } = require('../middleware/auth')
 const { getUserOrderCounts } = require('../services/orderCounts')
 const { toStoredPath, resolvePublicUrl } = require('../utils/publicUrl')
 const upload = require('../middleware/upload')
+const { assertImageFile } = require('../utils/imageMagic')
 
 const router = express.Router()
 router.use(authRequired)
@@ -63,6 +64,7 @@ router.post('/avatar', (req, res, next) => {
     if (err) return next(err)
     try {
       if (!req.file) return fail(res, 400, '请选择图片')
+      assertImageFile(req.file.path)
       const stored = `/static/uploads/avatars/${req.file.filename}`
       const user = await prisma.user.update({
         where: { id: req.userId },

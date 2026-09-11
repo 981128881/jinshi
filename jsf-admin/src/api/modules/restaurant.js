@@ -24,26 +24,6 @@ export const updateRestaurantStatus = (id, status, options) =>
   put(`/admin/restaurants/${id}/status`, { status }, { loading: true, ...options })
 
 /** @param {number|string} id @param {import('@/api/request/types.js').RequestOptions} [options] */
-export const fetchRestaurantAppAccount = (id, options) =>
-  get(`/admin/restaurants/${id}/app-account`, options)
-
-/** @param {number|string} id @param {*} data @param {import('@/api/request/types.js').RequestOptions} [options] */
-export const saveRestaurantAppAccount = (id, data, options) =>
-  post(`/admin/restaurants/${id}/app-account`, data, { loading: true, ...options })
-
-/** 按餐厅手机号自动开通店主账号（默认密码=手机号） */
-export const ensureRestaurantAppAccount = (id, options) =>
-  post(`/admin/restaurants/${id}/app-account`, {}, { loading: true, ...options })
-
-/** 重置密码为餐厅手机号 */
-export const resetRestaurantAppPassword = (id, options) =>
-  post(`/admin/restaurants/${id}/app-account/reset-password`, {}, { loading: true, ...options })
-
-/** @param {number|string} id @param {import('@/api/request/types.js').RequestOptions} [options] */
-export const deleteRestaurantAppAccount = (id, options) =>
-  del(`/admin/restaurants/${id}/app-account`, { loading: true, ...options })
-
-/** @param {number|string} id @param {import('@/api/request/types.js').RequestOptions} [options] */
 export const fetchRestaurantCategories = (id, options) =>
   get(`/admin/restaurants/${id}/categories`, options)
 

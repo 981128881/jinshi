@@ -8,42 +8,46 @@ const {
 const { success, fail } = require('../utils/response')
 const {
   issueAdminTokens,
-  issueMerchantAdminTokens,
-  authenticateMerchantAdmin,
   refreshAdminTokens,
   revokeAdminRefreshToken,
-  getAdminProfile,
-  getMerchantAdminProfile
+  getAdminProfile
 } = require('../services/adminAuth')
 const { authenticateAdmin, listAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser } = require('../services/adminUser')
 const { adminRequired } = require('../middleware/adminAuth')
 const { requirePermission } = require('../middleware/adminPermission')
-const { getPermissionTreeForUser, isOrgAdmin } = require('../constants/adminPermissions')
+const { getPermissionTreeForUser } = require('../constants/adminPermissions')
 const upload = require('../middleware/upload')
 const { compressProductImage } = require('../utils/imageCompress')
 const { resolvePublicUrl } = require('../utils/publicUrl')
 const { buildDashboardData } = require('../services/dashboardService')
 const { createLogger } = require('../utils/logger')
+const { isBlocked, recordFail, recordOk, clientIp } = require('../utils/loginLimit')
+const { pageTake, pageSkip } = require('../utils/pager')
+const { assertImageFile } = require('../utils/imageMagic')
 
 const log = createLogger('dashboard')
+const logAuth = createLogger('auth')
 
 const router = express.Router()
 
 router.post('/login', async (req, res, next) => {
   try {
-    const { username, password } = req.body || {}
-    // 1) 平台管理员
+    const username = String((req.body || {}).username || '').trim()
+    const password = String((req.body || {}).password || '')
+    const ip = clientIp(req)
+    if (isBlocked(ip, username)) {
+      logAuth.warn('登录锁定', { username, ip })
+      return fail(res, 429, '尝试过多，请 15 分钟后再试', 429)
+    }
     const user = await authenticateAdmin(username, password)
     if (user) {
+      recordOk(ip, username)
+      logAuth.info('登录成功', { username, ip, restaurantId: user.restaurantId || null })
       const tokens = await issueAdminTokens(user)
       return success(res, tokens)
     }
-    // 2) 门店店主（手机号账号，组织权限）
-    const merchant = await authenticateMerchantAdmin(username, password)
-    if (merchant) {
-      const tokens = await issueMerchantAdminTokens(merchant, merchant.restaurant)
-      return success(res, tokens)
-    }
+    recordFail(ip, username)
+    logAuth.warn('登录失败', { username, ip })
     return fail(res, 401, '用户名或密码错误', 401)
   } catch (e) {
     next(e)
@@ -67,22 +71,16 @@ router.post('/logout', async (req, res) => {
   return success(res, null)
 })
 
+router.get('/ws', (_req, res) => {
+  res.status(426).end('WebSocket')
+})
+
 router.use(adminRequired)
 
 router.get('/me', async (req, res) => {
-  if (isOrgAdmin(req.admin)) {
-    const profile = await getMerchantAdminProfile(req.admin.id)
-    if (!profile) return fail(res, 401, '账号不可用', 401)
-    return success(res, profile)
-  }
   const profile = await getAdminProfile(req.admin.username)
   if (!profile) return fail(res, 401, '账号不可用', 401)
-  return success(res, {
-    ...profile,
-    orgType: 'platform',
-    restaurantId: null,
-    restaurantName: null
-  })
+  return success(res, profile)
 })
 
 router.get('/permissions/tree', (req, res) => {
@@ -99,7 +97,7 @@ router.get('/admins', requirePermission('menu:system'), async (req, res, next) =
 
 router.post('/admins', requirePermission('admin:create'), async (req, res, next) => {
   try {
-    const row = await createAdminUser(req.body || {})
+    const row = await createAdminUser(req.body || {}, req.admin)
     return success(res, row)
   } catch (e) {
     if (e.statusCode) return fail(res, e.statusCode, e.message, e.statusCode)
@@ -129,8 +127,9 @@ router.delete('/admins/:id', requirePermission('admin:delete'), async (req, res,
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const restaurantId = isOrgAdmin(req.admin) ? req.admin.restaurantId : null
-    const payload = await buildDashboardData(prisma, { restaurantId })
+    const payload = await buildDashboardData(prisma, {
+      restaurantId: req.admin.restaurantId || null
+    })
     return success(res, payload)
   } catch (e) {
     log.error('dashboard 统计失败', e)
@@ -252,6 +251,10 @@ router.post('/upload', (req, res, next) => {
   try {
     if (!req.file) return fail(res, 400, '请选择文件')
     const type = req.body?.type
+    if (req.admin.restaurantId && type === 'banner') {
+      return fail(res, 403, '无权上传轮播图', 403)
+    }
+    assertImageFile(req.file.path)
     const folder =
       type === 'product' ? 'products' : type === 'banner' ? 'uploads/banners' : 'category'
 
@@ -274,8 +277,8 @@ router.post('/upload', (req, res, next) => {
 router.get('/users', requirePermission('menu:users'), async (req, res, next) => {
   try {
     const { page = 1, pageSize = 10 } = req.query
-    const take = Number(pageSize) || 10
-    const skip = ((Number(page) || 1) - 1) * take
+    const take = pageTake(pageSize)
+    const skip = pageSkip(page, take)
     const [list, total] = await Promise.all([
       prisma.user.findMany({
         orderBy: { id: 'desc' },

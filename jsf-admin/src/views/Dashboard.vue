@@ -1,71 +1,10 @@
 <template>
   <div class="home-page" v-loading="loading">
-    <!-- 店主简洁首页 -->
-    <template v-if="userStore.isOrgAdmin">
-      <el-card shadow="never" class="welcome-card org-welcome">
-        <div class="welcome-inner">
-          <div>
-            <h2 class="welcome-title">{{ userStore.restaurantName || '我的门店' }}</h2>
-            <p class="welcome-desc">{{ todayText }}</p>
-          </div>
-          <div class="welcome-actions">
-            <el-button type="primary" @click="$router.push('/reservations')">查看预约单</el-button>
-            <el-button @click="$router.push(userStore.getMyRestaurantPath())">门店设置</el-button>
-            <el-button @click="$router.push(userStore.getMyRestaurantPath() + '?wxacode=1')">店铺码</el-button>
-          </div>
-        </div>
-      </el-card>
-
-      <el-row :gutter="16" class="section-row">
-        <el-col :xs="24" :sm="8" v-for="item in orgTodoCards" :key="item.label">
-          <el-card shadow="never" class="todo-card" :class="item.cls" @click="$router.push(item.path)">
-            <div class="todo-icon" :style="{ background: item.bg }">
-              <el-icon :size="20"><component :is="item.icon" /></el-icon>
-            </div>
-            <div class="todo-num">{{ item.value }}</div>
-            <div class="todo-label">{{ item.label }}</div>
-          </el-card>
-        </el-col>
-      </el-row>
-
-      <div class="section-title">经营数据</div>
-      <el-row :gutter="16" class="section-row">
-        <el-col :xs="24" :md="8" v-for="item in orgPeriodCards" :key="item.key">
-          <el-card shadow="hover" class="period-stat-card" :body-style="{ padding: '18px' }">
-            <div class="period-stat-top">
-              <div class="period-stat-icon" :style="{ background: item.bg }">
-                <el-icon :size="20"><component :is="item.icon" /></el-icon>
-              </div>
-              <div class="period-stat-label">{{ item.label }}</div>
-            </div>
-            <div class="period-stat-metrics">
-              <div class="metric">
-                <div class="metric-label">
-                  <el-icon><ShoppingCart /></el-icon>
-                  销量
-                </div>
-                <div class="metric-value">{{ item.orders }} <span class="unit">单</span></div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">
-                  <el-icon><Money /></el-icon>
-                  销售额
-                </div>
-                <div class="metric-value accent">¥{{ item.sales }}</div>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </template>
-
-    <!-- 平台运营首页 -->
-    <template v-else>
-      <el-card shadow="never" class="welcome-card">
+    <el-card shadow="never" class="welcome-card">
         <div class="welcome-inner">
           <div>
             <h2 class="welcome-title">你好，{{ displayName }} 👋</h2>
-            <p class="welcome-desc">{{ todayText }} · 锦食坊餐厅运营数据</p>
+            <p class="welcome-desc">{{ todayText }} · 金石菜牌齐市店运营数据</p>
           </div>
           <div class="welcome-actions">
             <el-button type="primary" @click="$router.push('/reservations')">处理预约单</el-button>
@@ -74,7 +13,7 @@
         </div>
       </el-card>
 
-      <el-row :gutter="16" class="section-row">
+      <el-row :gutter="16" class="section-row stat-row">
         <el-col :xs="12" :sm="8" :md="4" v-for="item in statCards" :key="item.label">
           <el-card shadow="hover" class="stat-card" :body-style="{ padding: '16px' }">
             <div class="stat-icon" :style="{ background: item.bg }">
@@ -116,7 +55,7 @@
             <template #header>
               <div class="card-header-row">
                 <span class="card-title">销售趋势</span>
-                <el-radio-group v-model="period" size="small" @change="renderCharts">
+                <el-radio-group v-model="trendPeriod" size="small" @change="renderCharts">
                   <el-radio-button value="day">日</el-radio-button>
                   <el-radio-button value="week">周</el-radio-button>
                   <el-radio-button value="month">月</el-radio-button>
@@ -131,7 +70,7 @@
             <template #header>
               <div class="card-header-row">
                 <span class="card-title">经营概况</span>
-                <el-radio-group v-model="period" size="small">
+                <el-radio-group v-model="overviewPeriod" size="small">
                   <el-radio-button value="day">日</el-radio-button>
                   <el-radio-button value="week">周</el-radio-button>
                   <el-radio-button value="month">月</el-radio-button>
@@ -181,7 +120,6 @@
           </el-card>
         </el-col>
       </el-row>
-    </template>
   </div>
 </template>
 
@@ -194,11 +132,7 @@ import {
   User,
   Goods,
   TrendCharts,
-  Box,
-  Bell,
-  Dish,
-  Calendar,
-  Sunny
+  Box
 } from '@element-plus/icons-vue'
 import { fetchDashboard } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
@@ -208,7 +142,8 @@ const displayName = computed(
   () => userStore.displayName || userStore.username || '管理员'
 )
 const loading = ref(false)
-const period = ref('day')
+const trendPeriod = ref('day')
+const overviewPeriod = ref('day')
 
 const salesChartRef = ref()
 const topChartRef = ref()
@@ -249,67 +184,7 @@ const todayText = computed(() => {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 星期${week[d.getDay()]}`
 })
 
-const currentPeriod = computed(() => stats.value.periodStats?.[period.value] || { label: '', sales: 0, orders: 0 })
-
-const orgTodoCards = computed(() => [
-  {
-    label: '待接单',
-    value: stats.value.pendingSubmitted ?? stats.value.pendingPay ?? 0,
-    path: '/reservations?status=submitted',
-    icon: Bell,
-    cls: 'todo-warn',
-    bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)'
-  },
-  {
-    label: '制作中',
-    value: stats.value.pendingAccepted ?? stats.value.pendingShip ?? 0,
-    path: '/reservations?status=accepted',
-    icon: Dish,
-    cls: 'todo-primary',
-    bg: 'linear-gradient(135deg,#0ea5e9,#38bdf8)'
-  },
-  {
-    label: '待取餐',
-    value: stats.value.pendingReady ?? stats.value.pendingReceive ?? 0,
-    path: '/reservations?status=ready',
-    icon: Box,
-    cls: 'todo-ready',
-    bg: 'linear-gradient(135deg,#10b981,#34d399)'
-  }
-])
-
-const orgPeriodCards = computed(() => {
-  const p = stats.value.periodStats || {}
-  const day = p.day || { sales: stats.value.todaySales || 0, orders: stats.value.todayOrderCount || 0 }
-  const week = p.week || { sales: 0, orders: 0 }
-  const month = p.month || { sales: 0, orders: 0 }
-  return [
-    {
-      key: 'day',
-      label: '今日',
-      icon: Sunny,
-      bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)',
-      orders: day.orders ?? 0,
-      sales: Number(day.sales || 0).toFixed(2)
-    },
-    {
-      key: 'week',
-      label: '近7日',
-      icon: Calendar,
-      bg: 'linear-gradient(135deg,#6366f1,#818cf8)',
-      orders: week.orders ?? 0,
-      sales: Number(week.sales || 0).toFixed(2)
-    },
-    {
-      key: 'month',
-      label: '本月',
-      icon: TrendCharts,
-      bg: 'linear-gradient(135deg,#0ea5e9,#38bdf8)',
-      orders: month.orders ?? 0,
-      sales: Number(month.sales || 0).toFixed(2)
-    }
-  ]
-})
+const currentPeriod = computed(() => stats.value.periodStats?.[overviewPeriod.value] || { label: '', sales: 0, orders: 0 })
 
 const salesChange = computed(() => {
   const { todaySales, yesterdaySales } = stats.value
@@ -322,7 +197,9 @@ const statCards = computed(() => [
   {
     label: '今日预约额',
     value: `¥${stats.value.todaySales?.toFixed(2) ?? '0.00'}`,
-    sub: salesChange.value ? `较昨日 ${Number(salesChange.value) >= 0 ? '+' : ''}${salesChange.value}%` : '',
+    sub: salesChange.value
+      ? `较昨日 ${Number(salesChange.value) >= 0 ? '+' : ''}${salesChange.value}%`
+      : '较昨日 --',
     icon: Money,
     bg: 'linear-gradient(135deg,#0ea5e9,#06b6d4)'
   },
@@ -391,7 +268,7 @@ function renderCharts() {
   chartInstances.length = 0
 
   const trends = normalizeTrend()
-  const trend = trends[period.value] || []
+  const trend = trends[trendPeriod.value] || []
   const maxOrders = Math.max(...trend.map((i) => i.orders), 1)
   const orderBarWidth = Math.min(36, Math.max(14, Math.floor(240 / Math.max(trend.length, 1))))
 
@@ -405,7 +282,7 @@ function renderCharts() {
     xAxis: {
       type: 'category',
       data: trend.map((i) => i.date),
-      axisLabel: { interval: 0, rotate: period.value === 'week' ? 12 : 0 }
+      axisLabel: { interval: 0, rotate: trendPeriod.value === 'week' ? 12 : 0 }
     },
     yAxis: [
       { type: 'value', name: '销售额(元)', splitLine: { lineStyle: { type: 'dashed' } } },
@@ -519,10 +396,8 @@ onMounted(async () => {
       periodStats: data.periodStats || stats.value.periodStats,
       salesTrend: data.salesTrend || stats.value.salesTrend
     }
-    if (!userStore.isOrgAdmin) {
-      await nextTick()
-      renderCharts()
-    }
+    await nextTick()
+    renderCharts()
   } finally {
     loading.value = false
   }
@@ -570,6 +445,15 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
 }
 
+.stat-row :deep(.el-col) {
+  display: flex;
+}
+
+.stat-card {
+  width: 100%;
+  height: 100%;
+}
+
 .stat-card :deep(.el-card__body) {
   display: flex;
   align-items: flex-start;
@@ -603,6 +487,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: #94a3b8;
   margin-top: 4px;
+  min-height: 16px;
 }
 
 .todo-card {
@@ -638,14 +523,6 @@ onBeforeUnmount(() => {
 
 .todo-danger {
   background: linear-gradient(135deg, #fef2f2, #fee2e2);
-}
-
-.todo-ready {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-}
-
-.org-welcome {
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
 }
 
 .section-title {

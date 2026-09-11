@@ -1,7 +1,10 @@
 <template>
   <el-container class="layout">
     <el-aside width="220px" class="aside">
-      <div class="logo">{{ userStore.isOrgAdmin ? '门店后台' : '锦食坊运营后台' }}</div>
+      <div class="logo">
+        <img class="logo-img" src="/logo.png" alt="" />
+        <span>金石菜牌齐市店</span>
+      </div>
       <el-menu
         :default-active="activeMenu"
         router
@@ -49,7 +52,6 @@
             {{ notifyConnected ? '预约播报中' : '连接中…' }}
           </el-tag>
           <el-tag v-if="permissionStore.isSuper" type="warning" size="small" effect="plain">超级管理员</el-tag>
-          <el-tag v-else-if="userStore.isOrgAdmin" type="success" size="small" effect="plain">门店店主</el-tag>
           <span class="username">{{ userStore.displayName }}</span>
           <el-button type="danger" link @click="handleLogout">退出</el-button>
         </div>
@@ -68,6 +70,7 @@ import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useMerchantNotify } from '@/composables/useMerchantNotify'
 import { MENU_ITEMS } from '@/router/menu'
+import { confirmAction } from '@/utils/confirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -77,31 +80,18 @@ const { connected: notifyConnected } = useMerchantNotify()
 
 const visibleMenus = computed(() => {
   return MENU_ITEMS.filter((item) => permissionStore.canAccessMenu(item)).map((item) => {
-    const title =
-      item.path === '/restaurants'
-        ? userStore.isOrgAdmin
-          ? '我的门店'
-          : '餐厅管理'
-        : item.title
-    const path =
-      item.path === '/restaurants' && userStore.isOrgAdmin
-        ? userStore.getMyRestaurantPath()
-        : item.path
-    if (!item.children?.length) return { ...item, title, path }
+    if (!item.children?.length) return item
     return {
       ...item,
-      title,
-      path,
       children: item.children.filter((child) => permissionStore.canAccessMenu(child))
     }
   })
 })
 
 const activeMenu = computed(() => {
-  if (route.path.startsWith('/restaurants')) {
-    return userStore.isOrgAdmin ? userStore.getMyRestaurantPath() : '/restaurants'
-  }
-  if (route.path.startsWith('/menus')) return '/menus'
+  if (route.path.startsWith('/restaurants')) return '/restaurants'
+  if (route.path.startsWith('/menus/dishes')) return '/menus/dishes'
+  if (route.path.startsWith('/menus')) return '/menus/categories'
   if (route.path.startsWith('/cuisine-types')) return '/cuisine-types'
   if (route.path.startsWith('/reservations')) return '/reservations'
   if (route.path.startsWith('/banners')) return '/banners'
@@ -127,7 +117,8 @@ const breadcrumbs = computed(() => {
   return items
 })
 
-function handleLogout() {
+async function handleLogout() {
+  if (!(await confirmAction('确定退出登录？', '退出登录', '退出'))) return
   userStore.logout()
 }
 
@@ -156,13 +147,24 @@ onMounted(() => {
 }
 
 .logo {
-  height: 60px;
-  line-height: 60px;
-  text-align: center;
-  color: #38bdf8;
-  font-size: 16px;
+  height: 64px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #e2e8f0;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.2;
   border-bottom: 1px solid #1e293b;
+}
+.logo-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .header {
@@ -206,7 +208,19 @@ onMounted(() => {
   flex-direction: column;
   min-height: 0;
   background: #f1f5f9;
-  padding: 20px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.main > .page-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
+}
+
+.main > .page-card.page-list {
+  overflow: hidden;
 }
 </style>

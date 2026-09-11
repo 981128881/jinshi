@@ -1,0 +1,131 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^App(Modal|Button|Toast|Host)$": "@/components/App$1.vue",
+      "^u--(.*)": "@/uni_modules/uview-plus/components/u-$1/u-$1.vue",
+      "^up-(.*)": "@/uni_modules/uview-plus/components/u-$1/u-$1.vue",
+      "^u-([^-].*)": "@/uni_modules/uview-plus/components/u-$1/u-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "金石菜牌齐市店",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages/restaurant",
+      "pages": [
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "餐厅",
+            "enableShareAppMessage": true
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages/onboarding",
+      "pages": [
+        {
+          "path": "apply",
+          "style": { "navigationBarTitleText": "商家入驻" }
+        },
+        {
+          "path": "status",
+          "style": { "navigationBarTitleText": "入驻进度" }
+        }
+      ]
+    },
+    {
+      "root": "pages/merchant",
+      "pages": [
+        {
+          "path": "home",
+          "style": {
+            "navigationBarTitleText": "商家中心",
+            "enableShareAppMessage": true
+          }
+        },
+        {
+          "path": "orders",
+          "style": { "navigationBarTitleText": "预约单" }
+        },
+        {
+          "path": "menu",
+          "style": { "navigationBarTitleText": "菜单管理" }
+        }
+      ]
+    },
+    {
+      "root": "pages/user",
+      "pages": [
+        {
+          "path": "reservation/list",
+          "style": { "navigationBarTitleText": "我的预约" }
+        },
+        {
+          "path": "reservation/checkout",
+          "style": { "navigationBarTitleText": "确认预约" }
+        },
+        {
+          "path": "reservation/detail",
+          "style": { "navigationBarTitleText": "预约详情" }
+        },
+        {
+          "path": "login/index",
+          "style": { "navigationBarTitleText": "登录" }
+        },
+        {
+          "path": "settings/index",
+          "style": { "navigationBarTitleText": "设置" }
+        },
+        {
+          "path": "agreement/index",
+          "style": { "navigationBarTitleText": "协议详情" }
+        }
+      ]
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "金石菜牌齐市店",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#F5F4F0"
+  },
+  "tabBar": {
+    "color": "#7E8C7B",
+    "selectedColor": "#88A87B",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "height": "130rpx",
+    "fontSize": "24rpx",
+    "iconWidth": "60rpx",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "static/tab/my.png",
+        "selectedIconPath": "static/tab/my-active.png"
+      }
+    ]
+  }
+}

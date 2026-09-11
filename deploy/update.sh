@@ -44,14 +44,15 @@ if pm2 describe jsf-api >/dev/null 2>&1; then
 else
   pm2 start src/index.js --name jsf-api
 fi
+unset NODE_ENV
 
 cd "$ROOT/jsf-admin"
-# ponytail: 覆盖仓库里指向 localhost 的 .env.production；要 OSS 域名就手改这个文件
-if [[ ! -f .env.production.local ]]; then
-  printf 'VITE_API_BASE=/api\nVITE_FILE_BASE=\nVITE_USE_MOCK=false\n' > .env.production.local
+# ponytail: 小内存 ECS 上 vite build 会卡死；管理后台在本机打包后 scp dist
+if [[ -f dist/index.html ]]; then
+  echo "admin dist ok"
+else
+  echo "管理后台未打包：本机 cd jsf-admin && npm run build，再把 dist 传到 $ROOT/jsf-admin/dist"
 fi
-if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
-npm run build
 
 pm2 save
 curl -fsS "http://127.0.0.1:3000/health" >/dev/null

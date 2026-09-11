@@ -1,11 +1,9 @@
 const crypto = require('crypto')
 const config = require('../config')
-const prisma = require('../db/prisma')
 const { signToken, verifyToken } = require('../utils/jwt')
 const { cacheSet, cacheGet, cacheDel, isRedisReady } = require('../db/redis')
 const { getAdminProfile } = require('./adminUser')
-const { getEffectivePermissions, ORG_PERMISSION_CODES } = require('../constants/adminPermissions')
-const { verifyPassword } = require('../utils/password')
+const { getEffectivePermissions } = require('../constants/adminPermissions')
 
 /** @type {Map<string, object>} */
 const memoryRefreshStore = new Map()
@@ -78,107 +76,35 @@ function buildTokenPair(adminUser) {
 }
 
 function buildLoginPayload(adminUser) {
-  const permissions = getEffectivePermissions(adminUser)
+  const restaurantId = adminUser.restaurantId || null
   return {
     username: adminUser.username,
     nickname: adminUser.nickname || adminUser.username,
     adminId: adminUser.id,
-    isSuper: !!adminUser.isSuper,
-    orgType: 'platform',
-    restaurantId: null,
-    restaurantName: null,
-    permissions
+    isSuper: !!adminUser.isSuper && !restaurantId,
+    orgType: restaurantId ? 'restaurant' : 'platform',
+    restaurantId,
+    restaurantName: adminUser.restaurantName || adminUser.restaurant?.name || null,
+    permissions: getEffectivePermissions(adminUser)
   }
 }
 
 async function issueAdminTokens(adminUser) {
   const { jti, accessToken, refreshToken } = buildTokenPair(adminUser)
-  await storeRefreshToken(jti, { username: adminUser.username, adminId: adminUser.id, orgType: 'platform' })
-  return {
-    accessToken,
-    refreshToken,
-    token: accessToken,
-    expiresIn: config.admin.accessExpiresIn,
-    ...buildLoginPayload(adminUser)
-  }
-}
-
-function buildMerchantAdminTokenPair(account, restaurant) {
-  const jti = crypto.randomUUID()
-  const username = account.username
-  const accountId = account.id
-  const restaurantId = account.restaurantId
-  const accessToken = signToken(
-    {
-      role: 'merchant_admin',
-      username,
-      accountId,
-      restaurantId,
-      orgType: 'restaurant',
-      type: 'access'
-    },
-    config.admin.accessExpiresIn
-  )
-  const refreshToken = signToken(
-    {
-      role: 'merchant_admin',
-      username,
-      accountId,
-      restaurantId,
-      orgType: 'restaurant',
-      type: 'refresh',
-      jti
-    },
-    config.admin.refreshExpiresIn
-  )
-  return { jti, accessToken, refreshToken, username, accountId, restaurantId, restaurant }
-}
-
-function buildMerchantAdminLoginPayload(account, restaurant) {
-  return {
-    username: account.username,
-    nickname: restaurant?.name || account.username,
-    adminId: account.id,
-    accountId: account.id,
-    isSuper: false,
-    orgType: 'restaurant',
-    restaurantId: account.restaurantId,
-    restaurantName: restaurant?.name || '',
-    permissions: [...ORG_PERMISSION_CODES]
-  }
-}
-
-async function issueMerchantAdminTokens(account, restaurant) {
-  const { jti, accessToken, refreshToken } = buildMerchantAdminTokenPair(account, restaurant)
+  const payload = buildLoginPayload(adminUser)
   await storeRefreshToken(jti, {
-    username: account.username,
-    accountId: account.id,
-    restaurantId: account.restaurantId,
-    orgType: 'restaurant'
+    username: adminUser.username,
+    adminId: adminUser.id,
+    orgType: payload.orgType,
+    restaurantId: payload.restaurantId
   })
   return {
     accessToken,
     refreshToken,
     token: accessToken,
     expiresIn: config.admin.accessExpiresIn,
-    ...buildMerchantAdminLoginPayload(account, restaurant)
+    ...payload
   }
-}
-
-/** 店主账号登录（MerchantAppAccount） */
-async function authenticateMerchantAdmin(username, password) {
-  const name = String(username || '').trim()
-  const pwd = String(password || '')
-  if (!name || !pwd) return null
-
-  const account = await prisma.merchantAppAccount.findUnique({
-    where: { username: name },
-    include: { restaurant: true }
-  })
-  if (!account || !account.enabled) return null
-  if (!verifyPassword(pwd, account.password)) return null
-  if (!account.restaurant || account.restaurant.status === 'disabled') return null
-  return account
 }
 
 async function refreshAdminTokens(refreshToken) {
@@ -193,15 +119,6 @@ async function refreshAdminTokens(refreshToken) {
   }
 
   await revokeRefreshToken(payload.jti)
-
-  if (payload.role === 'merchant_admin' || session.orgType === 'restaurant') {
-    const account = await prisma.merchantAppAccount.findUnique({
-      where: { id: session.accountId || payload.accountId },
-      include: { restaurant: true }
-    })
-    if (!account || !account.enabled) throw new Error('account disabled')
-    return issueMerchantAdminTokens(account, account.restaurant)
-  }
 
   if (payload.role !== 'admin') {
     throw new Error('invalid refresh token')
@@ -226,32 +143,10 @@ async function revokeAdminRefreshToken(refreshToken) {
   }
 }
 
-async function getMerchantAdminProfile(accountId) {
-  const account = await prisma.merchantAppAccount.findUnique({
-    where: { id: accountId },
-    include: { restaurant: true }
-  })
-  if (!account || !account.enabled) return null
-  return {
-    id: account.id,
-    username: account.username,
-    nickname: account.restaurant?.name || account.username,
-    enabled: true,
-    isSuper: false,
-    orgType: 'restaurant',
-    restaurantId: account.restaurantId,
-    restaurantName: account.restaurant?.name || '',
-    permissions: [...ORG_PERMISSION_CODES]
-  }
-}
-
 module.exports = {
   issueAdminTokens,
-  issueMerchantAdminTokens,
-  authenticateMerchantAdmin,
   refreshAdminTokens,
   revokeAdminRefreshToken,
   getAdminProfile,
-  getMerchantAdminProfile,
   buildLoginPayload
 }

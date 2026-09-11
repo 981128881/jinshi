@@ -1,13 +1,14 @@
 <template>
   <div class="login-page">
     <el-card class="login-card" shadow="always">
-      <h2 class="title">锦食坊运营后台</h2>
-      <p class="subtitle">Vue 3 + Element Plus</p>
+      <img class="brand-logo" src="/logo.png" alt="" />
+      <h2 class="title">金石菜牌齐市店</h2>
+      <p class="subtitle">运营后台</p>
       <el-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleLogin">
         <el-form-item prop="username">
           <el-input
             v-model="form.username"
-            placeholder="管理员账号 / 店主手机号"
+            placeholder="账号"
             :prefix-icon="User"
             size="large"
           />
@@ -16,7 +17,7 @@
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="密码（店主默认=手机号）"
+            placeholder="密码"
             :prefix-icon="Lock"
             size="large"
             show-password
@@ -27,7 +28,6 @@
           登录
         </el-button>
       </el-form>
-      <p class="hint">平台：admin / admin123 · 店主：手机号 / 手机号</p>
     </el-card>
   </div>
 </template>
@@ -60,7 +60,10 @@ async function handleLogin() {
   await formRef.value.validate()
   loading.value = true
   try {
-    await userStore.login(form)
+    await userStore.login({
+      username: String(form.username || '').trim(),
+      password: String(form.password || '')
+    })
     ElMessage.success('登录成功')
     router.replace(route.query.redirect || userStore.getHomePath())
   } catch (e) {
@@ -97,6 +100,15 @@ onMounted(() => {
   margin-bottom: 4px;
 }
 
+.brand-logo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
 .subtitle {
   text-align: center;
   color: #94a3b8;
@@ -107,12 +119,5 @@ onMounted(() => {
 .submit-btn {
   width: 100%;
   margin-top: 8px;
-}
-
-.hint {
-  text-align: center;
-  color: #94a3b8;
-  font-size: 12px;
-  margin-top: 16px;
 }
 </style>

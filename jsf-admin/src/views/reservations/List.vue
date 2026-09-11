@@ -1,25 +1,28 @@
 <template>
-  <div class="page-card">
+  <div class="page-card page-list">
     <div class="toolbar">
       <el-form :inline="true" @submit.prevent>
         <el-form-item>
           <el-input v-model="query.keyword" placeholder="单号/联系人/电话/餐厅" clearable style="width: 220px" />
         </el-form-item>
         <el-form-item>
-          <el-select v-model="query.status" clearable placeholder="状态" style="width: 140px">
+          <el-select v-model="query.status" style="width: 140px">
+            <el-option label="全部" value="all" />
             <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="loadData">查询</el-button>
+          <el-button type="primary" @click="search">查询</el-button>
+          <el-button @click="reset">重置</el-button>
         </el-form-item>
       </el-form>
       <el-tag v-if="pendingSubmitted" type="warning">待接单 {{ pendingSubmitted }}</el-tag>
     </div>
 
-    <el-table :data="list" v-loading="loading" stripe highlight-current-row @row-click="onRowClick">
+    <div class="table-fill">
+    <el-table :data="list" v-loading="loading" stripe highlight-current-row height="100%" @row-click="onRowClick">
       <el-table-column prop="id" label="单号" min-width="150" />
-      <el-table-column v-if="!userStore.isOrgAdmin" prop="restaurantName" label="餐厅" min-width="120" />
+      <el-table-column prop="restaurantName" label="餐厅" min-width="120" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -42,16 +45,14 @@
         </template>
       </el-table-column>
     </el-table>
-
-    <div class="pager">
-      <el-pagination
-        v-model:current-page="query.page"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        layout="total, prev, pager, next"
-        @current-change="loadData"
-      />
     </div>
+
+    <AppPagination
+      v-model:page="query.page"
+      v-model:page-size="query.pageSize"
+      :total="total"
+      @change="loadData"
+    />
   </div>
 </template>
 
@@ -59,11 +60,11 @@
 import { reactive, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchReservations } from '@/api/admin'
-import { useUserStore } from '@/stores/user'
+import AppPagination from '@/components/AppPagination.vue'
+import { DEFAULT_PAGE_SIZE } from '@/constants/pagination'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
 
 const statusOptions = [
   { value: 'submitted', label: '待接单' },
@@ -77,7 +78,7 @@ const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const pendingSubmitted = ref(0)
-const query = reactive({ keyword: '', status: '', page: 1, pageSize: 10 })
+const query = reactive({ keyword: '', status: 'all', page: 1, pageSize: DEFAULT_PAGE_SIZE })
 
 function statusLabel(s) {
   return statusOptions.find((x) => x.value === s)?.label || s
@@ -95,6 +96,24 @@ function goDetail(id) {
   })
 }
 
+function search() {
+  query.page = 1
+  loadData()
+}
+
+function reset() {
+  query.keyword = ''
+  query.status = 'all'
+  query.page = 1
+  if (route.query.status) {
+    const next = { ...route.query }
+    delete next.status
+    router.replace({ query: next })
+    return
+  }
+  loadData()
+}
+
 function onRowClick(row) {
   goDetail(row?.id)
 }
@@ -102,7 +121,12 @@ function onRowClick(row) {
 async function loadData() {
   loading.value = true
   try {
-    const data = await fetchReservations({ ...query })
+    const data = await fetchReservations({
+      keyword: query.keyword,
+      page: query.page,
+      pageSize: query.pageSize,
+      ...(query.status && query.status !== 'all' ? { status: query.status } : {})
+    })
     list.value = data.list || []
     total.value = data.total || 0
     pendingSubmitted.value = data.pendingSubmitted || 0
@@ -114,7 +138,7 @@ async function loadData() {
 function syncStatusFromRoute() {
   const status = typeof route.query.status === 'string' ? route.query.status : ''
   if (status !== query.status) {
-    query.status = status
+    query.status = status && status !== 'all' ? status : 'all'
   }
 }
 
@@ -135,6 +159,5 @@ onMounted(() => {
 
 <style scoped>
 .toolbar { display: flex; justify-content: space-between; align-items: flex-start; }
-.pager { margin-top: 16px; display: flex; justify-content: flex-end; }
 :deep(.el-table__row) { cursor: pointer; }
 </style>

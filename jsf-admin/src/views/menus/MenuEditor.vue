@@ -1,61 +1,116 @@
 <template>
   <div class="menu-editor" v-loading="loading">
-    <div class="section-head">
-      <h4>分类</h4>
-      <el-button size="small" type="primary" @click="addCategory">新增分类</el-button>
+    <div v-if="pane === 'categories'" class="menu-pane">
+      <div class="section-head">
+        <h4>分类</h4>
+        <el-button size="small" type="primary" @click="addCategory">新增分类</el-button>
+      </div>
+      <div class="table-fill">
+        <el-table :data="pagedCats" stripe empty-text="暂无分类" height="100%">
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="name" label="名称" min-width="140" />
+          <el-table-column prop="sort" label="排序" width="80" />
+          <el-table-column label="显示" width="80">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.visible ? 'success' : 'info'">{{ row.visible ? '是' : '否' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="editCategory(row)">编辑</el-button>
+              <el-button link type="danger" @click="removeCategory(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <AppPagination v-model:page="catPage" v-model:page-size="catPageSize" :total="catTotal" />
     </div>
-    <el-table :data="categories" size="small" stripe empty-text="暂无分类">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="name" label="名称" min-width="140" />
-      <el-table-column prop="sort" label="排序" width="80" />
-      <el-table-column label="显示" width="80">
-        <template #default="{ row }">
-          <el-tag size="small" :type="row.visible ? 'success' : 'info'">{{ row.visible ? '是' : '否' }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="160">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="editCategory(row)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="removeCategory(row.id)">
-            <template #reference><el-button link type="danger">删除</el-button></template>
-          </el-popconfirm>
-        </template>
-      </el-table-column>
-    </el-table>
 
-    <div class="section-head" style="margin-top: 24px">
-      <h4>菜品</h4>
-      <el-button size="small" type="primary" @click="addDish">新增菜品</el-button>
+    <div v-if="pane === 'dishes'" class="menu-pane">
+      <div class="section-head">
+        <h4>菜品</h4>
+        <el-button size="small" type="primary" @click="addDish">新增菜品</el-button>
+      </div>
+      <div class="table-fill">
+        <el-table :data="pagedDishes" stripe empty-text="暂无菜品" height="100%">
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="name" label="菜名" min-width="140" />
+          <el-table-column prop="price" label="价格" width="90">
+            <template #default="{ row }">¥{{ Number(row.price).toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column label="分类" width="120">
+            <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
+          </el-table-column>
+          <el-table-column label="标签" min-width="160">
+            <template #default="{ row }">
+              <el-tag v-for="t in (row.tags || [])" :key="t" size="small" class="dish-tag">{{ t }}</el-tag>
+              <span v-if="!(row.tags || []).length" class="muted">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="上架" width="80">
+            <template #default="{ row }">
+              <el-switch :model-value="row.visible" @change="(v) => toggleDish(row, v)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="editDish(row)">编辑</el-button>
+              <el-button link type="danger" @click="removeDish(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <AppPagination v-model:page="dishPage" v-model:page-size="dishPageSize" :total="dishTotal" />
     </div>
-    <el-table :data="dishes" size="small" stripe empty-text="暂无菜品">
-      <el-table-column prop="id" label="ID" width="70" />
-      <el-table-column prop="name" label="菜名" min-width="140" />
-      <el-table-column prop="price" label="价格" width="90">
-        <template #default="{ row }">¥{{ Number(row.price).toFixed(2) }}</template>
-      </el-table-column>
-      <el-table-column label="分类" width="120">
-        <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
-      </el-table-column>
-      <el-table-column label="上架" width="80">
-        <template #default="{ row }">
-          <el-switch :model-value="row.visible" @change="(v) => toggleDish(row, v)" />
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="160">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="editDish(row)">编辑</el-button>
-          <el-popconfirm title="确认删除？" @confirm="removeDish(row.id)">
-            <template #reference><el-button link type="danger">删除</el-button></template>
-          </el-popconfirm>
-        </template>
-      </el-table-column>
-    </el-table>
+
+    <el-dialog v-model="dishDialog" :title="editingDishId ? '编辑菜品' : '新增菜品'" width="480px" destroy-on-close>
+      <el-form label-width="72px">
+        <el-form-item label="名称">
+          <el-input v-model="dishForm.name" maxlength="64" />
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input-number
+            v-model="dishForm.price"
+            :min="0"
+            :precision="2"
+            :controls="false"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="dishForm.categoryId" style="width: 100%">
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select
+            v-model="dishForm.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="本店特色、五星推荐…"
+            style="width: 100%"
+          >
+            <el-option v-for="t in DISH_TAG_PRESETS" :key="t" :label="t" :value="t" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="简介">
+          <el-input v-model="dishForm.desc" type="textarea" :rows="2" maxlength="120" show-word-limit placeholder="小程序菜名下方展示，可留空" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dishDialog = false">取消</el-button>
+        <el-button type="primary" :loading="dishSaving" @click="saveDish">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { confirmAction } from '@/utils/confirm'
 import {
   fetchRestaurantCategories,
   createRestaurantCategory,
@@ -66,17 +121,43 @@ import {
   updateRestaurantDish,
   deleteRestaurantDish
 } from '@/api/admin'
+import AppPagination from '@/components/AppPagination.vue'
+import { useClientPager } from '@/composables/useClientPager'
 
 const props = defineProps({
   restaurantId: {
     type: [Number, String],
     required: true
+  },
+  pane: {
+    type: String,
+    default: 'categories'
   }
 })
 
 const loading = ref(false)
 const categories = ref([])
 const dishes = ref([])
+const { page: catPage, pageSize: catPageSize, total: catTotal, paged: pagedCats } = useClientPager(categories)
+const { page: dishPage, pageSize: dishPageSize, total: dishTotal, paged: pagedDishes } = useClientPager(dishes)
+const DISH_TAG_PRESETS = ['本店特色', '五星推荐']
+const dishDialog = ref(false)
+const dishSaving = ref(false)
+const editingDishId = ref(null)
+const dishForm = reactive({ name: '', price: 0, categoryId: null, tags: [], desc: '' })
+
+function asTags(v) {
+  if (Array.isArray(v)) return v.filter(Boolean).map(String)
+  if (typeof v === 'string' && v.trim()) {
+    try {
+      const parsed = JSON.parse(v)
+      return Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
 
 function categoryName(cid) {
   return categories.value.find((c) => c.id === cid)?.name || cid
@@ -91,7 +172,7 @@ async function loadData() {
       fetchRestaurantDishes(props.restaurantId)
     ])
     categories.value = cats || []
-    dishes.value = dishList || []
+    dishes.value = (dishList || []).map((d) => ({ ...d, tags: asTags(d.tags) }))
   } finally {
     loading.value = false
   }
@@ -114,6 +195,7 @@ async function editCategory(row) {
 }
 
 async function removeCategory(categoryId) {
+  if (!(await confirmAction('确定删除该分类？', '删除确认', '删除'))) return
   await deleteRestaurantCategory(props.restaurantId, categoryId)
   categories.value = await fetchRestaurantCategories(props.restaurantId)
   ElMessage.success('已删除')
@@ -124,25 +206,58 @@ async function addDish() {
     ElMessage.warning('请先添加分类')
     return
   }
-  const { value: name } = await ElMessageBox.prompt('菜品名称', '新增菜品')
-  if (!name?.trim()) return
-  const { value: price } = await ElMessageBox.prompt('价格', '新增菜品', { inputValue: '0' })
-  await createRestaurantDish(props.restaurantId, {
-    name: name.trim(),
-    price: Number(price) || 0,
-    categoryId: categories.value[0].id
+  editingDishId.value = null
+  Object.assign(dishForm, {
+    name: '',
+    price: 0,
+    categoryId: categories.value[0].id,
+    tags: [],
+    desc: ''
   })
-  dishes.value = await fetchRestaurantDishes(props.restaurantId)
-  ElMessage.success('已添加')
+  dishDialog.value = true
 }
 
 async function editDish(row) {
-  const { value: name } = await ElMessageBox.prompt('菜品名称', '编辑菜品', { inputValue: row.name })
-  if (!name?.trim()) return
-  const { value: price } = await ElMessageBox.prompt('价格', '编辑菜品', { inputValue: String(row.price) })
-  await updateRestaurantDish(props.restaurantId, row.id, { name: name.trim(), price: Number(price) || 0 })
-  dishes.value = await fetchRestaurantDishes(props.restaurantId)
-  ElMessage.success('已更新')
+  editingDishId.value = row.id
+  Object.assign(dishForm, {
+    name: row.name,
+    price: row.price,
+    categoryId: row.categoryId,
+    tags: asTags(row.tags),
+    desc: row.desc || ''
+  })
+  dishDialog.value = true
+}
+
+async function saveDish() {
+  if (!dishForm.name?.trim()) {
+    ElMessage.warning('请填写名称')
+    return
+  }
+  if (dishForm.price == null || !Number.isFinite(Number(dishForm.price)) || Number(dishForm.price) < 0) {
+    ElMessage.warning('请输入有效价格')
+    return
+  }
+  dishSaving.value = true
+  try {
+    const payload = {
+      name: dishForm.name.trim(),
+      price: Number(dishForm.price),
+      categoryId: dishForm.categoryId,
+      tags: asTags(dishForm.tags),
+      desc: (dishForm.desc || '').trim()
+    }
+    if (editingDishId.value) {
+      await updateRestaurantDish(props.restaurantId, editingDishId.value, payload)
+    } else {
+      await createRestaurantDish(props.restaurantId, payload)
+    }
+    dishes.value = (await fetchRestaurantDishes(props.restaurantId) || []).map((d) => ({ ...d, tags: asTags(d.tags) }))
+    dishDialog.value = false
+    ElMessage.success('已保存')
+  } finally {
+    dishSaving.value = false
+  }
 }
 
 async function toggleDish(row, visible) {
@@ -151,8 +266,9 @@ async function toggleDish(row, visible) {
 }
 
 async function removeDish(dishId) {
+  if (!(await confirmAction('确定删除该菜品？', '删除确认', '删除'))) return
   await deleteRestaurantDish(props.restaurantId, dishId)
-  dishes.value = await fetchRestaurantDishes(props.restaurantId)
+  dishes.value = (await fetchRestaurantDishes(props.restaurantId) || []).map((d) => ({ ...d, tags: asTags(d.tags) }))
   ElMessage.success('已删除')
 }
 
@@ -164,15 +280,35 @@ watch(
 </script>
 
 <style scoped>
+.menu-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .section-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 .section-head h4 {
   margin: 0;
   font-size: 15px;
   color: #0f172a;
+}
+.dish-tag {
+  margin-right: 4px;
+}
+.muted {
+  color: #94a3b8;
 }
 </style>
