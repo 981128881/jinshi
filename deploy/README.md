@@ -1,5 +1,7 @@
 # 阿里云生产环境部署
 
+IP / 域名 / AppID 见 [HOSTS.md](./HOSTS.md)。给部署指令时查该文件。
+
 ## GitHub 自动部署（push `main` 即更新）
 
 仓库根目录 `.github/workflows/deploy.yml`：push `jsf-backend` / `jsf-admin` / `deploy` 后，SSH 执行 `deploy/update.sh`。小程序不自动上架。

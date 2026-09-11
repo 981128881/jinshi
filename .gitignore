@@ -18,6 +18,7 @@
 
 # 证件、设计源文件、根目录宣传图不上库
 身份证.*
+person-data/
 *.psd
 .agents/
 .cursor/

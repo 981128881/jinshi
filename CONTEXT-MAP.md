@@ -7,3 +7,5 @@
 | 管理后台 | wxapp-admin | 入驻审核、运营配置 |
 
 Specs: `tech-specs.md`, `ui-guidelines.md`, `frontend-plan.md`.
+
+生产 IP / 域名 / AppID：`deploy/HOSTS.md`（给指令时查这里，不要问用户）。
