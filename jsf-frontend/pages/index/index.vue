@@ -1,9 +1,9 @@
 <template>
 	<view class="page">
-		<!-- 我的位置：搜索上方 -->
-		<view class="loc-bar" @click="refreshLocation">
+		<view class="loc-pill" @click="refreshLocation">
 			<image class="loc-icon" src="/static/icons/location-pin.png" mode="aspectFit" />
 			<text class="loc-text">{{ locating ? '定位中…' : locationText }}</text>
+			<text class="loc-refresh">刷新</text>
 		</view>
 
 		<view v-if="banners.length" class="hero">
@@ -26,13 +26,13 @@
 				class="search-input"
 				v-model="keyword"
 				confirm-type="search"
-				placeholder="搜索餐厅"
+				placeholder="搜索餐厅名称"
+				placeholder-class="search-ph"
 				@confirm="loadList"
 			/>
 			<view class="search-btn" @click="loadList">搜索</view>
 		</view>
 
-		<!-- 店铺卡片 -->
 		<view
 			v-for="r in list"
 			:key="r.id"
@@ -46,22 +46,28 @@
 					:src="r.coverImage || r.logo || '/static/shop/demo-1.png'"
 					mode="aspectFill"
 				/>
-				<text v-if="r.visited" class="badge visited">去过</text>
-				<text v-if="!r.open" class="badge closed-badge">休息中</text>
+				<view class="badge-row">
+					<text v-if="r.open" class="badge open">营业中</text>
+					<text v-else class="badge closed-badge">休息中</text>
+					<text v-if="r.visited" class="badge visited">去过</text>
+				</view>
 			</view>
 			<view class="body">
 				<text class="name">{{ r.name }}</text>
-				<view class="row">
+				<view class="meta-row">
 					<text class="type">{{ r.cuisineName || '餐饮' }}</text>
+					<text class="dot">·</text>
 					<text class="sales">月售{{ formatSales(r.monthlySales) }}</text>
-				</view>
-				<view class="row bottom">
+					<text class="dot">·</text>
 					<text class="dist">{{ formatDistance(r.distanceKm) }}</text>
 				</view>
 			</view>
 		</view>
 
-		<view v-if="!list.length && !loading" class="empty">暂无餐厅，欢迎商家入驻</view>
+		<view v-if="!list.length && !loading" class="empty">
+			<text class="empty-title">附近暂无餐厅</text>
+			<text class="empty-desc">下拉刷新，或欢迎商家入驻</text>
+		</view>
 	</view>
 </template>
 
@@ -165,7 +171,6 @@
 					})
 					this.lat = pos.latitude
 					this.lng = pos.longitude
-					// 列表与逆地理并行：不阻塞餐厅接口
 					const listPromise = this.loadList(force ? {} : { soft: false })
 					this.updateLocationText().finally(() => this.persistLocationCache())
 					await listPromise
@@ -255,17 +260,20 @@
 
 <style scoped>
 	.page {
-		padding: 0 24rpx 40rpx;
+		padding: 0 24rpx 48rpx;
 		background: var(--color-bg);
 		min-height: 100vh;
 		box-sizing: border-box;
 	}
 
-	.loc-bar {
+	.loc-pill {
 		display: flex;
 		align-items: center;
-		padding: 20rpx 8rpx 8rpx;
-		gap: 8rpx;
+		gap: 10rpx;
+		margin: 20rpx 0 16rpx;
+		padding: 16rpx 24rpx;
+		border-radius: 999rpx;
+		background: var(--color-primary-soft);
 	}
 	.loc-icon {
 		width: 28rpx;
@@ -275,35 +283,42 @@
 	.loc-text {
 		flex: 1;
 		font-size: 24rpx;
-		font-weight: 400;
-		color: var(--color-text);
+		font-weight: 500;
+		color: var(--color-primary-dark);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.loc-refresh {
+		flex-shrink: 0;
+		font-size: 22rpx;
+		color: var(--color-primary);
+		font-weight: 600;
+	}
 
 	.hero {
-		margin: 8rpx 0 12rpx;
-		height: 200rpx;
-		border-radius: 16rpx;
+		margin-bottom: 20rpx;
+		height: 280rpx;
+		border-radius: var(--radius-card);
 		overflow: hidden;
-		background: #eee;
+		background: var(--color-surface);
+		box-shadow: var(--shadow-card);
 	}
 	.hero-swiper,
 	.hero-img {
 		display: block;
 		width: 100%;
-		height: 200rpx;
+		height: 280rpx;
 	}
 
 	.search {
 		display: flex;
 		align-items: center;
-		background: #fff;
+		background: var(--color-card);
 		border-radius: 999rpx;
-		padding: 8rpx 10rpx 8rpx 28rpx;
-		margin: 8rpx 0 12rpx;
-		border: 2rpx solid var(--color-primary);
+		padding: 10rpx 10rpx 10rpx 28rpx;
+		margin-bottom: 24rpx;
+		box-shadow: var(--shadow-card);
 		box-sizing: border-box;
 	}
 	.search-input {
@@ -311,104 +326,114 @@
 		font-size: 28rpx;
 		color: var(--color-text);
 		min-width: 0;
-		height: 56rpx;
-		line-height: 56rpx;
+		height: 60rpx;
+		line-height: 60rpx;
+	}
+	.search-ph {
+		color: var(--color-text-muted);
 	}
 	.search-btn {
 		flex-shrink: 0;
 		margin-left: 12rpx;
-		padding: 0 28rpx;
-		height: 56rpx;
-		line-height: 56rpx;
+		padding: 0 32rpx;
+		height: 60rpx;
+		line-height: 60rpx;
 		border-radius: 999rpx;
 		background: var(--color-primary);
 		color: #fff;
 		font-size: 26rpx;
+		font-weight: 600;
 		text-align: center;
 	}
 
 	.card {
-		display: flex;
-		background: #fff;
-		border-radius: 20rpx;
+		background: var(--color-card);
+		border-radius: var(--radius-card);
 		overflow: hidden;
-		margin-bottom: 20rpx;
-		padding: 20rpx;
-		box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+		margin-bottom: 24rpx;
+		box-shadow: var(--shadow-card);
 	}
 	.card.closed {
-		opacity: 0.72;
+		opacity: 0.78;
 	}
 	.cover-wrap {
 		position: relative;
-		width: 180rpx;
-		height: 180rpx;
-		flex-shrink: 0;
-		border-radius: 16rpx;
-		overflow: hidden;
-		background: #eee;
+		width: 100%;
+		height: 280rpx;
+		background: var(--color-surface);
 	}
 	.cover {
 		width: 100%;
 		height: 100%;
+		display: block;
+	}
+	.badge-row {
+		position: absolute;
+		left: 16rpx;
+		top: 16rpx;
+		display: flex;
+		gap: 10rpx;
 	}
 	.badge {
-		position: absolute;
-		left: 8rpx;
-		top: 8rpx;
 		font-size: 20rpx;
-		padding: 4rpx 10rpx;
-		border-radius: 8rpx;
+		padding: 6rpx 14rpx;
+		border-radius: 999rpx;
 		color: #fff;
+		font-weight: 600;
 	}
-	.badge.visited {
-		background: rgba(0, 0, 0, 0.55);
+	.badge.open {
+		background: var(--color-primary);
 	}
 	.badge.closed-badge {
-		top: auto;
-		bottom: 8rpx;
-		background: rgba(0, 0, 0, 0.55);
+		background: rgba(74, 74, 74, 0.72);
+	}
+	.badge.visited {
+		background: rgba(243, 156, 18, 0.92);
 	}
 	.body {
-		flex: 1;
-		padding-left: 20rpx;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
-		min-width: 0;
+		padding: 24rpx 28rpx 28rpx;
 	}
 	.name {
-		font-size: 32rpx;
+		display: block;
+		font-size: 34rpx;
 		font-weight: 700;
 		color: var(--color-text);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.row {
+	.meta-row {
 		display: flex;
 		align-items: center;
-		gap: 16rpx;
-		margin-top: 10rpx;
+		flex-wrap: wrap;
+		gap: 8rpx;
+		margin-top: 12rpx;
 	}
-	.type, .sales, .dist {
+	.type,
+	.sales,
+	.dist,
+	.dot {
 		font-size: 24rpx;
-		color: var(--color-icon-base);
+		color: var(--color-text-secondary);
 	}
-	.sales {
-		color: var(--color-icon-base);
+	.dot {
+		color: var(--color-text-muted);
 	}
-	.bottom {
-		margin-top: auto;
-		padding-top: 12rpx;
-	}
-	.dist {
-		color: var(--color-icon-muted);
-	}
+
 	.empty {
+		padding: 100rpx 40rpx;
 		text-align: center;
-		color: var(--color-icon-muted);
-		padding: 80rpx 0;
-		font-size: 28rpx;
+	}
+	.empty-title {
+		display: block;
+		font-size: 30rpx;
+		font-weight: 600;
+		color: var(--color-text);
+		margin-bottom: 12rpx;
+	}
+	.empty-desc {
+		display: block;
+		font-size: 24rpx;
+		color: var(--color-text-muted);
 	}
 </style>

@@ -30,8 +30,7 @@
         {
           "path": "detail",
           "style": {
-            "navigationBarTitleText": "餐厅",
-            "enableShareAppMessage": true
+            "navigationBarTitleText": "餐厅"
           }
         }
       ]
@@ -55,13 +54,16 @@
         {
           "path": "home",
           "style": {
-            "navigationBarTitleText": "商家中心",
-            "enableShareAppMessage": true
+            "navigationBarTitleText": "商家中心"
           }
         },
         {
           "path": "orders",
           "style": { "navigationBarTitleText": "预约单" }
+        },
+        {
+          "path": "order-detail",
+          "style": { "navigationBarTitleText": "预约详情" }
         },
         {
           "path": "menu",

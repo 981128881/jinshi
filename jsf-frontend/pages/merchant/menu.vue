@@ -14,7 +14,7 @@
 		</view>
 		<view class="card">
 			<view class="title">分类列表</view>
-			<view v-for="c in categories" :key="c.id" class="row">#{{ c.id }} {{ c.name }}</view>
+			<view v-for="c in categories" :key="c.id" class="row">{{ c.id }} {{ c.name }}</view>
 		</view>
 		<view class="card">
 			<view class="title">菜品列表</view>

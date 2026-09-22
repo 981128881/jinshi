@@ -30,9 +30,16 @@
       <el-table-column prop="cuisineName" label="品类" width="100" />
       <el-table-column prop="phone" label="电话" width="120" />
       <el-table-column prop="address" label="地址" min-width="160" show-overflow-tooltip />
-      <el-table-column label="营业" width="80">
+      <el-table-column label="营业" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.open ? 'success' : 'info'" size="small">{{ row.open ? '营业中' : '打烊' }}</el-tag>
+          <el-tag :type="row.effectivelyOpen ? 'success' : 'info'" size="small">
+            {{ row.effectivelyOpen ? '营业中' : '打烊' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="时段" width="120">
+        <template #default="{ row }">
+          {{ row.openTime && row.closeTime ? `${row.openTime}-${row.closeTime}` : '不限' }}
         </template>
       </el-table-column>
       <el-table-column label="状态" width="90">

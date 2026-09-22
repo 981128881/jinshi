@@ -93,7 +93,7 @@ cd ../wxapp-frontend && npm run build:mp-weixin
 ## 4. 微信配置
 
 - 小程序后台 → 开发 → 开发管理 → 服务器域名：`https://api.your-domain.com`
-- 填写 `WX_APPID`、`WX_SECRET`，`WX_MOCK=false`
+- 填写 `WX_APPID`、`WX_SECRET`
 - 支付：`WX_PAY_NOTIFY_URL` 与商户证书
 
 ## 5. 本地开发不受影响

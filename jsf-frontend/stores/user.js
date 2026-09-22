@@ -33,9 +33,9 @@ function defaultUser() {
 function emptyCounts() {
 	return {
 		submitted: 0,
-		accepted: 0,
-		ready: 0,
-		completed: 0
+		preparing: 0,
+		completed: 0,
+		cancelled: 0
 	}
 }
 

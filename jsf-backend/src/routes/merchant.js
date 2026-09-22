@@ -5,6 +5,8 @@ const { authRequired } = require('../middleware/auth')
 const { resolvePublicUrl } = require('../utils/publicUrl')
 const { parseDishTags, parseDishPrice, parseDishSales } = require('../utils/dishTags')
 const { ensureRestaurantWxaCode } = require('../utils/wxacode')
+const { isEffectivelyOpen } = require('../utils/businessHours')
+const { resolveOrderStatusFilter } = require('../utils/reservationStatus')
 
 const router = express.Router()
 
@@ -41,7 +43,11 @@ router.get('/restaurants', authRequired, async (req, res, next) => {
         id: m.restaurant.id,
         name: m.restaurant.name,
         logo: resolvePublicUrl(m.restaurant.logo || ''),
+        coverImage: resolvePublicUrl(m.restaurant.coverImage || ''),
         open: m.restaurant.open,
+        openTime: m.restaurant.openTime || '',
+        closeTime: m.restaurant.closeTime || '',
+        effectivelyOpen: isEffectivelyOpen(m.restaurant),
         status: m.restaurant.status,
         address: m.restaurant.address,
         phone: m.restaurant.phone || ''
@@ -75,6 +81,7 @@ router.get('/restaurants/:restaurantId/wxacode', authRequired, async (req, res, 
     if (!ctx) return
     return success(res, await ensureRestaurantWxaCode(ctx.restaurantId))
   } catch (e) {
+    if (e.statusCode) return fail(res, e.statusCode, e.message, e.statusCode)
     next(e)
   }
 })
@@ -138,6 +145,7 @@ router.post('/restaurants/:restaurantId/dishes', authRequired, async (req, res, 
     if (!ctx) return
     const { name, price, categoryId, image, desc, visible, tags, sales } = req.body || {}
     if (!name || !categoryId) return fail(res, 400, '名称、价格、分类必填')
+    if (!String(image || '').trim()) return fail(res, 400, '请上传菜品主图')
     const parsedPrice = parseDishPrice(price)
     if (parsedPrice == null) return fail(res, 400, '价格必须是大于等于 0 的数字')
     const parsedSales = sales == null || sales === '' ? 0 : parseDishSales(sales)
@@ -175,6 +183,9 @@ router.put('/restaurants/:restaurantId/dishes/:dishId', authRequired, async (req
     })
     if (!existing) return fail(res, 404, '菜品不存在', 404)
     const body = req.body || {}
+    if (body.image != null && !String(body.image || '').trim()) {
+      return fail(res, 400, '请上传菜品主图')
+    }
     let parsedPrice
     if (body.price !== undefined) {
       parsedPrice = parseDishPrice(body.price)
@@ -206,31 +217,53 @@ router.put('/restaurants/:restaurantId/dishes/:dishId', authRequired, async (req
 })
 
 /** 门店预约单 */
+function mapMerchantOrder(o) {
+  return {
+    id: o.id,
+    dailyNo: o.dailyNo || 0,
+    dailyDate: o.dailyDate || '',
+    status: o.status,
+    totalAmount: o.totalAmount,
+    remark: o.remark,
+    contactName: o.contactName,
+    contactPhone: o.contactPhone,
+    reserveAt: o.reserveAt,
+    createdAt: o.createdAt,
+    userNickname: o.user?.nickname || '',
+    items: o.items
+  }
+}
+
 router.get('/restaurants/:restaurantId/orders', authRequired, async (req, res, next) => {
   try {
     const ctx = await requireMember(req, res)
     if (!ctx) return
     const status = req.query.status
     const where = { restaurantId: ctx.restaurantId }
-    if (status) where.status = String(status)
+    const statusFilter = resolveOrderStatusFilter(status)
+    if (statusFilter) where.status = statusFilter
     const list = await prisma.order.findMany({
       where,
       include: { items: true, user: true },
       orderBy: { createdAt: 'desc' },
       take: 100
     })
-    return success(res, list.map((o) => ({
-      id: o.id,
-      status: o.status,
-      totalAmount: o.totalAmount,
-      remark: o.remark,
-      contactName: o.contactName,
-      contactPhone: o.contactPhone,
-      reserveAt: o.reserveAt,
-      createdAt: o.createdAt,
-      userNickname: o.user?.nickname || '',
-      items: o.items
-    })))
+    return success(res, list.map(mapMerchantOrder))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/restaurants/:restaurantId/orders/:orderId', authRequired, async (req, res, next) => {
+  try {
+    const ctx = await requireMember(req, res)
+    if (!ctx) return
+    const order = await prisma.order.findFirst({
+      where: { id: req.params.orderId, restaurantId: ctx.restaurantId },
+      include: { items: true, user: true }
+    })
+    if (!order) return fail(res, 404, '订单不存在', 404)
+    return success(res, mapMerchantOrder(order))
   } catch (e) {
     next(e)
   }
@@ -260,7 +293,10 @@ router.post('/restaurants/:restaurantId/orders/:orderId/status', authRequired, a
     if (status === 'accepted') data.acceptedAt = new Date()
     if (status === 'ready') data.readyAt = new Date()
     if (status === 'completed') data.completedAt = new Date()
-    if (status === 'cancelled') data.cancelledAt = new Date()
+    if (status === 'cancelled') {
+      data.cancelledAt = new Date()
+      data.cancelSource = 'merchant'
+    }
 
     const updated = await prisma.order.update({ where: { id: order.id }, data })
     return success(res, updated)

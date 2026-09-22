@@ -6,18 +6,18 @@
     </div>
 
     <el-form ref="formRef" v-loading="loading" :model="form" :rules="rules" label-width="80px" class="edit-form">
-      <el-form-item label="图片" prop="imageUrl">
+      <el-form-item label="图片" prop="imageUrl" required>
         <el-image v-if="form.imageUrl" :src="form.imageUrl" style="width: 240px; height: 80px; margin-bottom: 8px" fit="cover" />
         <el-upload :show-file-list="false" accept="image/*" :http-request="handleUpload">
           <el-button type="primary" plain :loading="uploading">上传图片</el-button>
         </el-upload>
-        <el-input v-model="form.imageUrl" placeholder="或粘贴图片 URL" style="margin-top: 8px" />
+        <el-input v-model="form.imageUrl" maxlength="512" placeholder="或粘贴图片 URL" style="margin-top: 8px" />
       </el-form-item>
       <el-form-item label="标题">
-        <el-input v-model="form.title" />
+        <el-input v-model="form.title" :maxlength="30" show-word-limit placeholder="选填" />
       </el-form-item>
       <el-form-item label="链接">
-        <el-input v-model="form.link" />
+        <el-input v-model="form.link" :maxlength="200" show-word-limit placeholder="选填" />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
@@ -81,7 +81,11 @@ async function handleSave() {
   await formRef.value.validate()
   saving.value = true
   try {
-    const payload = { imageUrl: form.imageUrl, title: form.title, link: form.link }
+    const payload = {
+      imageUrl: form.imageUrl,
+      title: String(form.title || '').trim().slice(0, 30),
+      link: String(form.link || '').trim().slice(0, 200)
+    }
     if (isEdit.value) {
       await updateBanner(form.id, payload)
     } else {

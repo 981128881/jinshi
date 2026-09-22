@@ -13,9 +13,6 @@ async function fetchJson(url, options = {}) {
  * 获取微信 access_token（内存缓存，提前 5 分钟过期）
  */
 async function getAccessToken(forceRefresh = false) {
-  if (config.wx.mock) {
-    return 'mock_access_token'
-  }
   if (!config.wx.appId || !config.wx.secret) {
     throw new Error('未配置 WX_APPID / WX_SECRET')
   }
@@ -32,12 +29,15 @@ async function getAccessToken(forceRefresh = false) {
 
   const data = await fetchJson(url)
   if (data.errcode) {
-    const err = new Error(data.errmsg || '获取 access_token 失败')
+    const err = new Error(mapWxAuthError(data.errcode, data.errmsg))
     err.code = data.errcode
+    err.statusCode = 400
     throw err
   }
   if (!data.access_token) {
-    throw new Error('微信未返回 access_token')
+    const err = new Error('微信未返回 access_token')
+    err.statusCode = 400
+    throw err
   }
 
   const ttlMs = Math.max(60, Number(data.expires_in || 7200) - 300) * 1000
@@ -52,10 +52,6 @@ async function getAccessToken(forceRefresh = false) {
  * code 换 openid / session_key
  */
 async function code2Session(code) {
-  if (config.wx.mock) {
-    // mock 下使用稳定 openid，便于静默登录联调
-    return { openid: 'mock_openid_stable', session_key: 'mock_session', unionid: null }
-  }
   if (!config.wx.appId || !config.wx.secret) {
     throw new Error('未配置 WX_APPID / WX_SECRET')
   }
@@ -74,6 +70,7 @@ async function code2Session(code) {
   if (data.errcode) {
     const err = new Error(mapWxAuthError(data.errcode, data.errmsg))
     err.code = data.errcode
+    err.statusCode = 400
     throw err
   }
   if (!data.openid) {
@@ -87,9 +84,6 @@ async function code2Session(code) {
  * @see https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/user-info/phone-number/getPhoneNumber.html
  */
 async function getPhoneNumber(phoneCode) {
-  if (config.wx.mock) {
-    return { phoneNumber: '13800138000', purePhoneNumber: '13800138000', countryCode: '86' }
-  }
   if (!phoneCode) {
     throw new Error('缺少 phoneCode')
   }
@@ -167,11 +161,6 @@ function mapWxacodeError(code, errmsg) {
  * @see https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/qrcode-link/qr-code/getUnlimitedQRCode.html
  */
 async function getWxaCodeUnlimited({ scene, page }) {
-  if (config.wx.mock) {
-    const err = new Error('当前为微信 mock，无法生成官方店铺码。请设置 WX_MOCK=false')
-    err.statusCode = 400
-    throw err
-  }
   if (!config.wx.appId || !config.wx.secret) {
     const err = new Error('未配置 WX_APPID / WX_SECRET')
     err.statusCode = 400
@@ -241,7 +230,7 @@ function clipWx(s, n) {
  * @see https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/mp-message-management/subscribe-message/sendMessage.html
  */
 async function sendSubscribeMessage({ openid, templateId, page, data }) {
-  if (config.wx.mock || !templateId || !openid) return { skipped: true }
+  if (!templateId || !openid) return { skipped: true }
   const tryOnce = async (forceRefresh) => {
     const accessToken = await getAccessToken(forceRefresh)
     const url =

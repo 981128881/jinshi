@@ -32,23 +32,23 @@
 
 			<view class="form-rows">
 				<view class="form-row">
-					<text class="form-label">下单人</text>
+					<text class="form-label"><text class="req">*</text>下单人</text>
 					<input
 						class="form-input"
 						v-model="contactName"
-						placeholder="请输入姓名"
+						placeholder="最多10个字"
 						placeholder-class="ph"
-						maxlength="20"
+						maxlength="10"
 					/>
 				</view>
 
 				<view class="form-row">
-					<text class="form-label">手机号</text>
+					<text class="form-label"><text class="req">*</text>手机号</text>
 					<input
 						class="form-input"
 						v-model="contactPhone"
 						type="number"
-						placeholder="请输入或一键获取"
+						placeholder="11位手机号"
 						placeholder-class="ph"
 						maxlength="11"
 					/>
@@ -61,7 +61,7 @@
 				</view>
 
 				<view class="form-row tap" @click="openDatetime">
-					<text class="form-label">预约时间</text>
+					<text class="form-label"><text class="req">*</text>预约时间</text>
 					<text class="form-value" :class="{ ph: !reserveDisplay }">
 						{{ reserveDisplay || '请选择日期和时间' }}
 					</text>
@@ -73,9 +73,9 @@
 					<input
 						class="form-input"
 						v-model="remark"
-						placeholder="选填，如人数、忌口"
+						placeholder="选填，最多50字"
 						placeholder-class="ph"
-						maxlength="100"
+						maxlength="50"
 					/>
 				</view>
 			</view>
@@ -207,8 +207,8 @@
 			},
 			fillFromUser() {
 				const info = useUserStore().userInfo || {}
-				const nick = (info.nickname || '').trim()
-				const phone = (info.phone || '').trim()
+				const nick = (info.nickname || '').trim().slice(0, 10)
+				const phone = (info.phone || '').trim().slice(0, 11)
 				if (!this.contactName && nick) this.contactName = nick
 				if (!this.contactPhone && phone) this.contactPhone = phone
 			},
@@ -216,9 +216,9 @@
 				const data = await phoneNumberLogin(e)
 				if (!data) return
 				const user = useUserStore().userInfo || {}
-				const phone = data.userInfo?.phone || user.phone || ''
+				const phone = (data.userInfo?.phone || user.phone || '').slice(0, 11)
 				if (phone) this.contactPhone = phone
-				const nick = data.userInfo?.nickname || user.nickname || ''
+				const nick = (data.userInfo?.nickname || user.nickname || '').trim().slice(0, 10)
 				if (nick && !this.contactName) this.contactName = nick
 			},
 			openDatetime() {
@@ -247,10 +247,15 @@
 				this.showDatetime = false
 			},
 			submit() {
-				const name = (this.contactName || '').trim()
-				const phone = (this.contactPhone || '').trim()
+				const name = (this.contactName || '').trim().slice(0, 10)
+				const phone = (this.contactPhone || '').trim().slice(0, 11)
+				const remark = (this.remark || '').trim().slice(0, 50)
 				if (!name) {
 					uni.showToast({ title: '请填写下单人姓名', icon: 'none' })
+					return
+				}
+				if (name.length > 10) {
+					uni.showToast({ title: '姓名最多10个字', icon: 'none' })
 					return
 				}
 				if (!/^1\d{10}$/.test(phone)) {
@@ -266,9 +271,10 @@
 					uni.showToast({ title: '预约时间不能早于现在', icon: 'none' })
 					return
 				}
-				askReservationSubscribe(() => this.createOrder(name, phone))
+				this.remark = remark
+				askReservationSubscribe(() => this.createOrder(name, phone, remark))
 			},
-			async createOrder(name, phone) {
+			async createOrder(name, phone, remark) {
 				if (this.submitting) return
 				this.submitting = true
 				try {
@@ -286,7 +292,7 @@
 						contactPhone: phone,
 						reserveDate: this.reserveDate,
 						reserveTime: this.reserveTime,
-						remark: (this.remark || '').trim()
+						remark: remark || ''
 					})
 					uni.removeStorageSync(DRAFT_KEY)
 					uni.showToast({ title: '预约成功', icon: 'success' })
@@ -310,11 +316,17 @@
 	}
 
 	.card {
-		background: #fff;
-		border-radius: 20rpx;
+		background: var(--color-card);
+		border-radius: var(--radius-card);
 		padding: 28rpx 28rpx 8rpx;
 		margin-bottom: 24rpx;
-		box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.03);
+		box-shadow: var(--shadow-card);
+	}
+	.form-card {
+		background: var(--color-card);
+		border: 1rpx solid var(--color-border);
+		box-shadow: none;
+		padding-bottom: 12rpx;
 	}
 
 	.shop-bar {
@@ -403,12 +415,9 @@
 	.sum-val {
 		font-size: 32rpx;
 		font-weight: 700;
-		color: var(--color-danger);
+		color: var(--color-price);
 	}
 
-	.form-card {
-		padding-bottom: 12rpx;
-	}
 	.form-rows {
 		margin-top: 8rpx;
 	}
@@ -431,6 +440,10 @@
 		font-size: 28rpx;
 		color: var(--color-text);
 		font-weight: 500;
+	}
+	.req {
+		color: #e74c3c;
+		margin-right: 4rpx;
 	}
 	.form-input {
 		flex: 1;
@@ -480,8 +493,8 @@
 		right: 0;
 		bottom: 0;
 		padding-bottom: env(safe-area-inset-bottom);
-		background: #fff;
-		box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+		background: rgba(255, 255, 255, 0.96);
+		box-shadow: var(--shadow-bar);
 		z-index: 20;
 	}
 	.bar {
@@ -498,21 +511,21 @@
 	}
 	.bar-hint {
 		font-size: 22rpx;
-		color: #909399;
+		color: var(--color-text-secondary);
 	}
 	.bar-price {
 		font-size: 40rpx;
 		font-weight: 700;
-		color: var(--color-danger);
+		color: var(--color-price);
 		line-height: 1.2;
 	}
 	.bar-btn {
 		margin: 0;
 		flex-shrink: 0;
-		min-width: 260rpx;
+		min-width: 280rpx;
 		height: 80rpx;
 		line-height: 80rpx;
-		padding: 0 40rpx;
+		padding: 0 48rpx;
 		border-radius: 999rpx;
 		background: var(--color-primary);
 		color: #fff;

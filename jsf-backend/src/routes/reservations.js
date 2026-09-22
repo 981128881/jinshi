@@ -4,6 +4,8 @@ const { success, fail } = require('../utils/response')
 const { authRequired } = require('../middleware/auth')
 const { resolvePublicUrl } = require('../utils/publicUrl')
 const { notifyNewReservation, notifyReservationCancelled } = require('../services/reservationSubscribe')
+const { resolveOrderStatusFilter } = require('../utils/reservationStatus')
+const { nextDailyNo } = require('../utils/orderDailyNo')
 
 const router = express.Router()
 
@@ -17,6 +19,8 @@ function mapOrder(row) {
   if (!row) return null
   return {
     id: row.id,
+    dailyNo: row.dailyNo || 0,
+    dailyDate: row.dailyDate || '',
     restaurantId: row.restaurantId,
     restaurantName: row.restaurant?.name || '',
     restaurantAddress: row.restaurant?.address || '',
@@ -60,8 +64,9 @@ router.post('/', authRequired, async (req, res, next) => {
     if (!rid) return fail(res, 400, '缺少餐厅')
     if (!Array.isArray(items) || items.length === 0) return fail(res, 400, '请选择菜品')
 
-    const name = String(contactName || '').trim()
-    const phone = String(contactPhone || '').trim()
+    const name = String(contactName || '').trim().slice(0, 10)
+    const phone = String(contactPhone || '').trim().slice(0, 11)
+    const remarkText = String(remark || '').trim().slice(0, 50)
     if (!name) return fail(res, 400, '请填写下单人姓名')
     if (!/^1\d{10}$/.test(phone)) return fail(res, 400, '请填写正确的手机号')
 
@@ -80,9 +85,11 @@ router.post('/', authRequired, async (req, res, next) => {
     }
 
     const restaurant = await prisma.restaurant.findFirst({
-      where: { id: rid, status: 'approved', open: true }
+      where: { id: rid, status: 'approved' }
     })
     if (!restaurant) return fail(res, 400, '餐厅不可预约')
+    const { isEffectivelyOpen } = require('../utils/businessHours')
+    if (!isEffectivelyOpen(restaurant)) return fail(res, 400, '餐厅已打烊或非营业时间')
 
     const dishIds = items.map((i) => Number(i.dishId)).filter(Boolean)
     const dishes = await prisma.dish.findMany({
@@ -109,6 +116,7 @@ router.post('/', authRequired, async (req, res, next) => {
     const id = orderId()
     const sold = lines.reduce((s, l) => s + l.quantity, 0)
     const order = await prisma.$transaction(async (tx) => {
+      const { dailyDate, dailyNo } = await nextDailyNo(tx, rid)
       const created = await tx.order.create({
         data: {
           id,
@@ -116,10 +124,12 @@ router.post('/', authRequired, async (req, res, next) => {
           restaurantId: rid,
           status: 'submitted',
           totalAmount: Math.round(total * 100) / 100,
-          remark: remark || '',
+          remark: remarkText,
           contactName: name,
           contactPhone: phone,
           reserveAt: reserveDateTime,
+          dailyDate,
+          dailyNo,
           items: { create: lines }
         },
         include: { items: true, restaurant: true }
@@ -161,11 +171,9 @@ router.post('/', authRequired, async (req, res, next) => {
 /** 我的预约单 */
 router.get('/mine', authRequired, async (req, res, next) => {
   try {
-    const status = String(req.query.status || '').trim()
     const where = { userId: req.userId }
-    if (status && status !== 'all' && status !== '0') {
-      where.status = status
-    }
+    const statusFilter = resolveOrderStatusFilter(req.query.status)
+    if (statusFilter) where.status = statusFilter
     const list = await prisma.order.findMany({
       where,
       include: { items: true, restaurant: true },
@@ -201,7 +209,7 @@ router.post('/:id/cancel', authRequired, async (req, res, next) => {
     if (row.status !== 'submitted') return fail(res, 400, '当前状态不可取消')
     const updated = await prisma.order.update({
       where: { id: row.id },
-      data: { status: 'cancelled', cancelledAt: new Date() },
+      data: { status: 'cancelled', cancelledAt: new Date(), cancelSource: 'user' },
       include: { items: true, restaurant: true }
     })
     notifyReservationCancelled(updated, '用户取消预约').catch(() => {})

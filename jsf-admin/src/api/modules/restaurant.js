@@ -60,5 +60,12 @@ export const deleteRestaurantDish = (id, dishId, options) =>
 export const fetchRestaurantWxaCode = (id, options) =>
   get(`/admin/restaurants/${id}/wxacode`, { loading: true, ...options })
 
+/** @param {number|string} id @param {string} password */
+export const updateRestaurantPassword = (id, password, options) =>
+  put(`/admin/restaurants/${id}/password`, { password }, { loading: true, ...options })
+
 export const uploadDishImage = (file, options) =>
   uploadFile('/admin/upload', file, 'file', { type: 'product' }, { loading: true, ...options })
+
+export const uploadShopImage = (file, options) =>
+  uploadFile('/admin/upload', file, 'file', { type: 'shop' }, { loading: true, ...options })

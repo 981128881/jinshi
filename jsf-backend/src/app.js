@@ -6,6 +6,7 @@ const { notFound, errorHandler } = require('./middleware/errorHandler')
 const { requestTimeout } = require('./middleware/requestTimeout')
 const { httpLogger } = require('./middleware/httpLogger')
 const { createLogger } = require('./utils/logger')
+const { fail } = require('./utils/response')
 
 const log = createLogger('app')
 
@@ -58,6 +59,14 @@ app.use(
 )
 app.use(httpLogger)
 
+// 拒绝 URL 中带 .. 的请求（fetch 会规范化，原始 HTTP 仍可能带上）
+app.use((req, res, next) => {
+  if (/\.\./.test(req.originalUrl || '')) {
+    return fail(res, 400, '非法路径', 400)
+  }
+  next()
+})
+
 app.use('/static', express.static(path.join(__dirname, '../public')))
 
 app.get('/health', async (req, res) => {
@@ -70,7 +79,14 @@ app.get('/health', async (req, res) => {
   }
 })
 
-app.use(express.json())
+app.use(
+  express.json({
+    reviver(key, value) {
+      if (key === '__proto__' || key === 'prototype' || key === 'constructor') return undefined
+      return value
+    }
+  })
+)
 app.use('/api/logs', logsRoutes)
 app.use(requestTimeout())
 

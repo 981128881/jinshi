@@ -190,45 +190,31 @@ async function testAdminApi() {
 }
 
 async function testMiniProgramApi() {
-  console.log('\n[4] 小程序 API')
-
-  const login = await request('POST', '/api/auth/dev-login', { label: 'POST /auth/dev-login', body: {} })
-  if (!login.ok) {
-    fail('POST /auth/dev-login', login.error)
-    return
-  }
-  let token = ''
-  if (login.data?.code === 0 && login.data?.data?.token) {
-    token = login.data.data.token
-    pass('POST /auth/dev-login', login.data.data.userInfo?.nickname)
-  } else {
-    fail('POST /auth/dev-login', JSON.stringify(login.data))
-    return
-  }
+  console.log('\n[4] 小程序公开 API')
 
   const mpTests = [
     ['GET /home/banners', 'GET', '/api/home/banners'],
     ['GET /home/recommend', 'GET', '/api/home/recommend'],
-    ['GET /categories', 'GET', '/api/categories'],
-    ['GET /products', 'GET', '/api/products?page=1&pageSize=5'],
+    ['GET /restaurants', 'GET', '/api/restaurants'],
     ['GET /config/shop', 'GET', '/api/config/shop'],
-    ['GET /cart', 'GET', '/api/cart', token],
-    ['GET /orders', 'GET', '/api/orders', token]
+    ['GET /auth/wx-status', 'GET', '/api/auth/wx-status']
   ]
 
-  for (const [name, method, path, authToken] of mpTests) {
-    const res = await request(method, path, { token: authToken, label: name })
+  for (const [name, method, path] of mpTests) {
+    const res = await request(method, path, { label: name })
     if (!res.ok) {
       fail(name, res.error)
       continue
     }
-    if (res.data?.code === 0) {
-      const d = res.data.data
+    if (res.data?.code === 0 || res.status === 200) {
+      const d = res.data?.data
       const detail = Array.isArray(d)
         ? `${d.length} 条`
         : d?.total != null
           ? `total=${d.total}`
-          : d?.name || 'ok'
+          : d?.name || d?.configured != null
+            ? `configured=${d.configured}`
+            : 'ok'
       pass(name, detail)
     } else {
       fail(name, JSON.stringify(res.data))

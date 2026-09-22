@@ -5,6 +5,7 @@ const { adminRequired } = require('../middleware/adminAuth')
 const { requirePermission } = require('../middleware/adminPermission')
 const { resolvePublicUrl } = require('../utils/publicUrl')
 const { allocRestaurantCode } = require('../utils/restaurantCode')
+const { hashPassword } = require('../utils/password')
 
 const router = express.Router()
 
@@ -42,6 +43,37 @@ function mapApp(row) {
       createdAt: l.createdAt
     }))
   }
+}
+
+/** 门店后台账号：用户名=手机号，默认密码=手机号 */
+async function ensureMerchantAdmin(tx, { phone, restaurantId, shopName }) {
+  const username = String(phone || '').trim()
+  if (!/^1\d{10}$/.test(username)) return null
+  const password = hashPassword(username)
+  const existing = await tx.adminUser.findUnique({ where: { username } })
+  if (existing) {
+    return tx.adminUser.update({
+      where: { id: existing.id },
+      data: {
+        password,
+        nickname: shopName || existing.nickname || username,
+        enabled: true,
+        isSuper: false,
+        restaurantId
+      }
+    })
+  }
+  return tx.adminUser.create({
+    data: {
+      username,
+      password,
+      nickname: shopName || username,
+      enabled: true,
+      isSuper: false,
+      permissions: [],
+      restaurantId
+    }
+  })
 }
 
 router.get('/', adminRequired, requirePermission('menu:onboarding'), async (req, res, next) => {
@@ -99,11 +131,13 @@ router.post('/:id/approve', adminRequired, requirePermission('onboarding:review'
             name: (app.restaurantName || '').trim() || `${app.contactName}的店`,
             cuisineTypeId: app.cuisineTypeId,
             phone: app.contactPhone,
-            address: app.address,
-            latitude: app.latitude,
-            longitude: app.longitude,
+            address: app.address || '',
+            latitude: app.latitude || 0,
+            longitude: app.longitude || 0,
             coverImage: app.doorImage || '',
             logo: app.doorImage || '',
+            licenseImage: app.licenseImage || '',
+            description: '',
             status: 'approved',
             open: true
           }
@@ -117,15 +151,29 @@ router.post('/:id/approve', adminRequired, requirePermission('onboarding:review'
           }
         })
       } else {
+        const existingRest = await tx.restaurant.findUnique({
+          where: { id: restaurantId },
+          select: { licenseImage: true }
+        })
         await tx.restaurant.update({
           where: { id: restaurantId },
           data: {
             status: 'approved',
             open: true,
-            phone: app.contactPhone || undefined
+            phone: app.contactPhone || undefined,
+            ...(!existingRest?.licenseImage && app.licenseImage
+              ? { licenseImage: app.licenseImage }
+              : {})
           }
         })
       }
+
+      const shopName = (app.restaurantName || '').trim() || `${app.contactName}的店`
+      await ensureMerchantAdmin(tx, {
+        phone: app.contactPhone,
+        restaurantId,
+        shopName
+      })
 
       const updated = await tx.onboardingApplication.update({
         where: { id },
@@ -151,7 +199,7 @@ router.post('/:id/approve', adminRequired, requirePermission('onboarding:review'
       return { updated }
     })
 
-    return success(res, mapApp(result.updated), '已通过')
+    return success(res, mapApp(result.updated), '已通过（后台账号为手机号，默认密码同手机号）')
   } catch (e) {
     next(e)
   }

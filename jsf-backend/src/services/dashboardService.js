@@ -2,11 +2,14 @@ const {
   getApproxProductCount,
   getDashboardCache,
   setDashboardCache,
-  getLowStockStats
+  getLowStockStats,
+  invalidateDashboardCache
 } = require('./statsCache')
 const { createLogger } = require('../utils/logger')
 
 const log = createLogger('dashboard')
+// 统计口径变更后清一次旧缓存
+invalidateDashboardCache()
 
 /** 预约单状态（与 schema Order.status 一致） */
 const RESERVATION_STATUS = {
@@ -23,6 +26,11 @@ function round2(n) {
 
 function sumAmount(list) {
   return list.reduce((s, o) => s + (o.totalAmount || 0), 0)
+}
+
+/** 统计口径：已取消不参与预约额/单量 */
+function activeOrderWhere(scope = {}) {
+  return { ...scope, status: { not: RESERVATION_STATUS.CANCELLED } }
 }
 
 function buildSalesTrend(trendOrders, todayStart) {
@@ -71,9 +79,9 @@ function buildSalesTrend(trendOrders, todayStart) {
 }
 
 async function buildTopDishes(prisma, restaurantId = null) {
-  const itemWhere = { dishId: { not: null } }
-  if (restaurantId) {
-    itemWhere.order = { restaurantId: Number(restaurantId) }
+  const itemWhere = {
+    dishId: { not: null },
+    order: activeOrderWhere(restaurantId ? { restaurantId: Number(restaurantId) } : {})
   }
 
   const grouped = await prisma.orderItem.groupBy({
@@ -145,6 +153,7 @@ async function buildDashboardData(prisma, options = {}) {
 
   const orderScope = scoped ? { restaurantId } : {}
   const dishScope = scoped ? { restaurantId } : {}
+  const activeScope = activeOrderWhere(orderScope)
 
   const [
     restaurantCount,
@@ -166,25 +175,25 @@ async function buildDashboardData(prisma, options = {}) {
       ? prisma.restaurant.count({ where: { id: restaurantId } })
       : prisma.restaurant.count({ where: { status: 'approved' } }),
     scoped ? Promise.resolve(0) : prisma.user.count(),
-    prisma.order.count({ where: orderScope }),
+    prisma.order.count({ where: activeScope }),
     prisma.order.findMany({
-      where: { ...orderScope, createdAt: { gte: todayStart } },
+      where: { ...activeScope, createdAt: { gte: todayStart } },
       select: { totalAmount: true }
     }),
     prisma.order.findMany({
-      where: { ...orderScope, createdAt: { gte: yesterdayStart, lt: todayStart } },
+      where: { ...activeScope, createdAt: { gte: yesterdayStart, lt: todayStart } },
       select: { totalAmount: true }
     }),
     prisma.order.findMany({
-      where: { ...orderScope, createdAt: { gte: weekStart } },
+      where: { ...activeScope, createdAt: { gte: weekStart } },
       select: { createdAt: true, totalAmount: true }
     }),
     prisma.order.findMany({
-      where: { ...orderScope, createdAt: { gte: monthStart } },
+      where: { ...activeScope, createdAt: { gte: monthStart } },
       select: { createdAt: true, totalAmount: true }
     }),
     prisma.order.findMany({
-      where: { ...orderScope, createdAt: { gte: trendFrom } },
+      where: { ...activeScope, createdAt: { gte: trendFrom } },
       select: { createdAt: true, totalAmount: true }
     }),
     prisma.order.count({ where: { ...orderScope, status: RESERVATION_STATUS.SUBMITTED } }),

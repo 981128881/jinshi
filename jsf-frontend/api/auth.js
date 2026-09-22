@@ -8,8 +8,3 @@ export function wxSilentLogin(code, options = {}) {
 export function wxPhoneLogin(data, options = {}) {
 	return post('/auth/phone-login', data, { auth: false, loading: true, ...options })
 }
-
-/** 开发环境模拟登录 */
-export function devLogin(options = {}) {
-	return post('/auth/dev-login', {}, { auth: false, loading: true, ...options })
-}

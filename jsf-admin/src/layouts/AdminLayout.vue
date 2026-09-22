@@ -60,6 +60,32 @@
         <router-view />
       </el-main>
     </el-container>
+
+    <el-dialog
+      :model-value="!!currentAlert"
+      :title="currentAlert?.title || '预约提醒'"
+      width="440px"
+      align-center
+      :close-on-click-modal="false"
+      append-to-body
+      class="reservation-alert-dialog"
+      @update:model-value="onAlertModel"
+    >
+      <p v-if="currentAlert?.tip" class="alert-tip">{{ currentAlert.tip }}</p>
+      <dl v-if="currentAlert?.order" class="alert-order">
+        <div><dt>单号</dt><dd>{{ currentAlert.order.id }}</dd></div>
+        <div><dt>当日序号</dt><dd>#{{ currentAlert.order.dailyNo || '—' }}</dd></div>
+        <div><dt>门店</dt><dd>{{ currentAlert.order.restaurantName || '—' }}</dd></div>
+        <div><dt>联系人</dt><dd>{{ currentAlert.order.contactName || '—' }}</dd></div>
+        <div><dt>电话</dt><dd>{{ currentAlert.order.contactPhone || '—' }}</dd></div>
+        <div><dt>预约时间</dt><dd>{{ formatAlertTime(currentAlert.order.reserveAt) }}</dd></div>
+        <div><dt>金额</dt><dd>¥{{ currentAlert.order.totalAmount ?? 0 }}</dd></div>
+        <div v-if="currentAlert.order.remark"><dt>备注</dt><dd>{{ currentAlert.order.remark }}</dd></div>
+      </dl>
+      <template #footer>
+        <el-button type="primary" @click="viewAlertOrder">查看</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
@@ -76,7 +102,29 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
-const { connected: notifyConnected } = useMerchantNotify()
+const { connected: notifyConnected, currentAlert, dismissAlert, acknowledgeView } = useMerchantNotify()
+
+function onAlertModel(v) {
+  if (!v) dismissAlert()
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+function formatAlertTime(v) {
+  if (!v) return '—'
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return '—'
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+function viewAlertOrder() {
+  const id = currentAlert.value?.order?.id
+  if (id) acknowledgeView(id)
+  dismissAlert()
+  if (id) router.push(`/reservations/${encodeURIComponent(String(id))}`)
+}
 
 const visibleMenus = computed(() => {
   return MENU_ITEMS.filter((item) => permissionStore.canAccessMenu(item)).map((item) => {
@@ -222,5 +270,37 @@ onMounted(() => {
 
 .main > .page-card.page-list {
   overflow: hidden;
+}
+
+.alert-tip {
+  margin: 0 0 12px;
+  color: #b45309;
+  font-size: 14px;
+}
+
+.alert-order {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-order > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.alert-order dt {
+  margin: 0;
+  color: #64748b;
+}
+
+.alert-order dd {
+  margin: 0;
+  color: #0f172a;
+  word-break: break-all;
 }
 </style>

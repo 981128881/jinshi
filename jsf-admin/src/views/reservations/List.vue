@@ -1,15 +1,29 @@
 <template>
   <div class="page-card page-list">
     <div class="toolbar">
-      <el-form :inline="true" @submit.prevent>
+      <el-form :inline="true" class="toolbar-form" @submit.prevent>
         <el-form-item>
-          <el-input v-model="query.keyword" placeholder="单号/联系人/电话/餐厅" clearable style="width: 220px" />
+          <el-input v-model="query.keyword" placeholder="单号/联系人/电话/餐厅" clearable style="width: 200px" />
         </el-form-item>
         <el-form-item>
-          <el-select v-model="query.status" style="width: 140px">
+          <el-select v-model="query.status" style="width: 120px">
             <el-option label="全部" value="all" />
             <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-date-picker
+            v-model="query.range"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="预约开始"
+            end-placeholder="预约结束"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            :default-time="defaultRangeTime"
+            clearable
+            style="width: 360px"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>
@@ -22,10 +36,15 @@
     <div class="table-fill">
     <el-table :data="list" v-loading="loading" stripe highlight-current-row height="100%" @row-click="onRowClick">
       <el-table-column prop="id" label="单号" min-width="150" />
+      <el-table-column label="当日序号" width="100">
+        <template #default="{ row }">#{{ row.dailyNo || '—' }}</template>
+      </el-table-column>
       <el-table-column prop="restaurantName" label="餐厅" min-width="120" />
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag size="small">{{ statusLabel(row.status) }}</el-tag>
+          <el-tag size="small" :type="statusTagType(row.status)" effect="light">
+            {{ statusLabel(row.status) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="contactName" label="联系人" width="90" />
@@ -68,20 +87,49 @@ const router = useRouter()
 
 const statusOptions = [
   { value: 'submitted', label: '待接单' },
-  { value: 'accepted', label: '制作中' },
-  { value: 'ready', label: '待取餐' },
+  { value: 'preparing', label: '备餐中' },
   { value: 'completed', label: '已完成' },
   { value: 'cancelled', label: '已取消' }
 ]
+
+const STATUS_LABEL = {
+  submitted: '待接单',
+  accepted: '备餐中',
+  ready: '备餐中',
+  completed: '已完成',
+  cancelled: '已取消'
+}
+
+/** 选日期后默认起止时刻：当天 00:00 / 23:59:59 */
+const defaultRangeTime = [new Date(2000, 0, 1, 0, 0, 0), new Date(2000, 0, 1, 23, 59, 59)]
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const pendingSubmitted = ref(0)
-const query = reactive({ keyword: '', status: 'all', page: 1, pageSize: DEFAULT_PAGE_SIZE })
+const query = reactive({
+  keyword: '',
+  status: 'all',
+  range: null,
+  page: 1,
+  pageSize: DEFAULT_PAGE_SIZE
+})
 
 function statusLabel(s) {
-  return statusOptions.find((x) => x.value === s)?.label || s
+  return STATUS_LABEL[s] || statusOptions.find((x) => x.value === s)?.label || s
+}
+
+/** 待接单 / 备餐中 / 已完成 / 已取消 分色 */
+function statusTagType(status) {
+  return (
+    {
+      submitted: 'warning',
+      accepted: 'primary',
+      ready: 'primary',
+      completed: 'success',
+      cancelled: 'danger'
+    }[status] || 'info'
+  )
 }
 
 function formatTime(v) {
@@ -104,6 +152,7 @@ function search() {
 function reset() {
   query.keyword = ''
   query.status = 'all'
+  query.range = null
   query.page = 1
   if (route.query.status) {
     const next = { ...route.query }
@@ -121,11 +170,14 @@ function onRowClick(row) {
 async function loadData() {
   loading.value = true
   try {
+    const [dateFrom, dateTo] = Array.isArray(query.range) ? query.range : []
     const data = await fetchReservations({
       keyword: query.keyword,
       page: query.page,
       pageSize: query.pageSize,
-      ...(query.status && query.status !== 'all' ? { status: query.status } : {})
+      ...(query.status && query.status !== 'all' ? { status: query.status } : {}),
+      ...(dateFrom ? { dateFrom } : {}),
+      ...(dateTo ? { dateTo } : {})
     })
     list.value = data.list || []
     total.value = data.total || 0
@@ -158,6 +210,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.toolbar { display: flex; justify-content: space-between; align-items: flex-start; }
-:deep(.el-table__row) { cursor: pointer; }
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.toolbar-form {
+  flex: 1;
+  min-width: 0;
+}
+:deep(.el-table__row) {
+  cursor: pointer;
+}
 </style>

@@ -24,7 +24,9 @@ export {
   updateRestaurantDish,
   deleteRestaurantDish,
   fetchRestaurantWxaCode,
-  uploadDishImage
+  updateRestaurantPassword,
+  uploadDishImage,
+  uploadShopImage
 } from './modules/restaurant.js'
 export {
   fetchCuisineTypes,

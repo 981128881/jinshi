@@ -1,9 +1,6 @@
-import { wxSilentLogin, wxPhoneLogin, devLogin } from '../api/auth.js'
+import { wxSilentLogin, wxPhoneLogin } from '../api/auth.js'
 import { getToken } from './request.js'
 import { useUserStore } from '../stores/user.js'
-import config from '../config/index.js'
-
-const DEV_LOGIN_KEY = 'dev_login'
 
 function getWxLoginCode() {
 	return new Promise((resolve, reject) => {
@@ -16,20 +13,6 @@ function getWxLoginCode() {
 			fail: reject
 		})
 	})
-}
-
-function markDevLogin() {
-	if (config.enableDevLogin) {
-		uni.setStorageSync(DEV_LOGIN_KEY, '1')
-	}
-}
-
-function clearDevLogin() {
-	uni.removeStorageSync(DEV_LOGIN_KEY)
-}
-
-export function isDevLogin() {
-	return config.enableDevLogin && !!uni.getStorageSync(DEV_LOGIN_KEY)
 }
 
 /** 解析 JWT payload（仅读 exp，不做签名校验） */
@@ -64,7 +47,6 @@ function isTokenFresh(token, minRemainMs = 60 * 60 * 1000) {
 export async function trySilentLoginOnLaunch() {
 	const token = getToken()
 	if (!token) return
-	if (isDevLogin()) return
 	if (isTokenFresh(token)) {
 		useUserStore().loadOrderCounts()
 		return
@@ -77,25 +59,6 @@ export async function trySilentLoginOnLaunch() {
 	} catch (e) {
 		console.warn('静默登录失败', e)
 		useUserStore().logout()
-	}
-}
-
-/** 开发环境模拟登录 */
-export async function devMockLogin() {
-	if (!config.enableDevLogin) {
-		uni.showToast({ title: '开发登录未启用', icon: 'none' })
-		return null
-	}
-	try {
-		const data = await devLogin()
-		markDevLogin()
-		useUserStore().setLoginData(data)
-		await useUserStore().loadOrderCounts()
-		uni.showToast({ title: '模拟登录成功', icon: 'success' })
-		return data
-	} catch (e) {
-		uni.showToast({ title: e?.message || '模拟登录失败', icon: 'none' })
-		return null
 	}
 }
 
@@ -128,7 +91,6 @@ export async function phoneNumberLogin(e) {
 	try {
 		const loginCode = await getWxLoginCode()
 		const data = await wxPhoneLogin({ loginCode, phoneCode }, { loading: true })
-		clearDevLogin()
 		useUserStore().setLoginData(data)
 		useUserStore().loadOrderCounts()
 		uni.showToast({ title: '登录成功', icon: 'success' })
@@ -141,6 +103,5 @@ export async function phoneNumberLogin(e) {
 }
 
 export function logout() {
-	clearDevLogin()
 	useUserStore().logout()
 }

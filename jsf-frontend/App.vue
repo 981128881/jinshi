@@ -45,6 +45,9 @@ page {
 	--radius-sm: 8rpx;
 	--radius-md: 16rpx;
 	--radius-lg: 24rpx;
+	--radius-card: 24rpx;
+	--shadow-card: 0 8rpx 28rpx rgba(61, 74, 56, 0.06);
+	--shadow-bar: 0 -4rpx 24rpx rgba(61, 74, 56, 0.08);
 	background-color: var(--color-bg);
 	font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
 		'PingFang SC', 'Microsoft Yahei', sans-serif;

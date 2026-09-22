@@ -52,7 +52,14 @@
           </el-table-column>
           <el-table-column label="标签" min-width="160">
             <template #default="{ row }">
-              <el-tag v-for="t in (row.tags || [])" :key="t" size="small" class="dish-tag">{{ t }}</el-tag>
+              <el-tag
+                v-for="t in (row.tags || [])"
+                :key="t"
+                size="small"
+                class="dish-tag"
+                effect="plain"
+                :style="tagColorStyle(t)"
+              >{{ t }}</el-tag>
               <span v-if="!(row.tags || []).length" class="muted">—</span>
             </template>
           </el-table-column>
@@ -74,10 +81,10 @@
 
     <el-dialog v-model="dishDialog" :title="editingDishId ? '编辑菜品' : '新增菜品'" width="480px" destroy-on-close>
       <el-form label-width="72px">
-        <el-form-item label="名称">
-          <el-input v-model="dishForm.name" maxlength="64" />
+        <el-form-item label="名称" required>
+          <el-input v-model="dishForm.name" :maxlength="30" show-word-limit placeholder="菜品名称" />
         </el-form-item>
-        <el-form-item label="主图">
+        <el-form-item label="主图" required>
           <div class="dish-image-row">
             <el-image v-if="dishForm.image" :src="resolveDishImage(dishForm.image)" fit="cover" class="dish-thumb-lg" />
             <el-upload :show-file-list="false" accept="image/*" :http-request="handleUploadDishImage">
@@ -86,7 +93,7 @@
             <el-button v-if="dishForm.image" @click="dishForm.image = ''">清除</el-button>
           </div>
         </el-form-item>
-        <el-form-item label="价格">
+        <el-form-item label="价格" required>
           <el-input-number
             v-model="dishForm.price"
             :min="0"
@@ -98,7 +105,7 @@
         <el-form-item label="销量">
           <el-input-number v-model="dishForm.sales" :min="0" :precision="0" :controls="false" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="分类">
+        <el-form-item label="分类" required>
           <el-select v-model="dishForm.categoryId" style="width: 100%">
             <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
@@ -117,7 +124,14 @@
           </el-select>
         </el-form-item>
         <el-form-item label="简介">
-          <el-input v-model="dishForm.desc" type="textarea" :rows="2" maxlength="120" show-word-limit placeholder="小程序菜名下方展示，可留空" />
+          <el-input
+            v-model="dishForm.desc"
+            type="textarea"
+            :rows="2"
+            :maxlength="50"
+            show-word-limit
+            placeholder="小程序菜名下方展示，可留空"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -125,12 +139,30 @@
         <el-button type="primary" :loading="dishSaving" @click="saveDish">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="catDialog" :title="editingCatId ? '编辑分类' : '新增分类'" width="400px" destroy-on-close>
+      <el-form label-width="72px" @submit.prevent>
+        <el-form-item label="名称" required>
+          <el-input
+            v-model="catForm.name"
+            :maxlength="20"
+            show-word-limit
+            placeholder="分类名称"
+            @keyup.enter="saveCategory"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="catDialog = false">取消</el-button>
+        <el-button type="primary" :loading="catSaving" @click="saveCategory">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { confirmAction } from '@/utils/confirm'
 import {
   fetchRestaurantCategories,
@@ -146,6 +178,7 @@ import {
 import AppPagination from '@/components/AppPagination.vue'
 import { useClientPager } from '@/composables/useClientPager'
 import appConfig from '@/config/index.js'
+import { tagColorStyle } from '@/utils/tagColor'
 
 const props = defineProps({
   restaurantId: {
@@ -169,6 +202,11 @@ const dishSaving = ref(false)
 const uploading = ref(false)
 const editingDishId = ref(null)
 const dishForm = reactive({ name: '', price: 0, categoryId: null, tags: [], desc: '', image: '', sales: 0 })
+
+const catDialog = ref(false)
+const catSaving = ref(false)
+const editingCatId = ref(null)
+const catForm = reactive({ name: '' })
 
 function resolveDishImage(path) {
   if (!path) return ''
@@ -210,19 +248,36 @@ async function loadData() {
 }
 
 async function addCategory() {
-  const { value } = await ElMessageBox.prompt('分类名称', '新增分类')
-  if (!value?.trim()) return
-  await createRestaurantCategory(props.restaurantId, { name: value.trim() })
-  categories.value = await fetchRestaurantCategories(props.restaurantId)
-  ElMessage.success('已添加')
+  editingCatId.value = null
+  catForm.name = ''
+  catDialog.value = true
 }
 
 async function editCategory(row) {
-  const { value } = await ElMessageBox.prompt('分类名称', '编辑分类', { inputValue: row.name })
-  if (!value?.trim()) return
-  await updateRestaurantCategory(props.restaurantId, row.id, { name: value.trim() })
-  categories.value = await fetchRestaurantCategories(props.restaurantId)
-  ElMessage.success('已更新')
+  editingCatId.value = row.id
+  catForm.name = String(row.name || '').slice(0, 20)
+  catDialog.value = true
+}
+
+async function saveCategory() {
+  const name = String(catForm.name || '').trim().slice(0, 20)
+  if (!name) {
+    ElMessage.warning('请填写分类名称')
+    return
+  }
+  catSaving.value = true
+  try {
+    if (editingCatId.value) {
+      await updateRestaurantCategory(props.restaurantId, editingCatId.value, { name })
+    } else {
+      await createRestaurantCategory(props.restaurantId, { name })
+    }
+    categories.value = await fetchRestaurantCategories(props.restaurantId)
+    catDialog.value = false
+    ElMessage.success('已保存')
+  } finally {
+    catSaving.value = false
+  }
 }
 
 async function removeCategory(categoryId) {
@@ -276,7 +331,9 @@ async function handleUploadDishImage({ file }) {
 }
 
 async function saveDish() {
-  if (!dishForm.name?.trim()) {
+  const name = String(dishForm.name || '').trim().slice(0, 30)
+  const desc = String(dishForm.desc || '').trim().slice(0, 50)
+  if (!name) {
     ElMessage.warning('请填写名称')
     return
   }
@@ -284,15 +341,25 @@ async function saveDish() {
     ElMessage.warning('请输入有效价格')
     return
   }
+  if (!dishForm.categoryId) {
+    ElMessage.warning('请选择分类')
+    return
+  }
+  if (!String(dishForm.image || '').trim()) {
+    ElMessage.warning('请上传菜品主图')
+    return
+  }
+  dishForm.name = name
+  dishForm.desc = desc
   dishSaving.value = true
   try {
     const payload = {
-      name: dishForm.name.trim(),
+      name,
       price: Number(dishForm.price),
       categoryId: dishForm.categoryId,
       tags: asTags(dishForm.tags),
-      desc: (dishForm.desc || '').trim(),
-      image: dishForm.image || '',
+      desc,
+      image: String(dishForm.image || '').trim(),
       sales: Math.max(0, Math.floor(Number(dishForm.sales) || 0))
     }
     if (editingDishId.value) {
@@ -355,6 +422,7 @@ watch(
 }
 .dish-tag {
   margin-right: 4px;
+  border: none;
 }
 .muted {
   color: #94a3b8;

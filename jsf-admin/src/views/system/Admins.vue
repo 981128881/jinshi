@@ -63,18 +63,25 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="96px">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" :disabled="!!editingId" placeholder="登录用户名" />
+          <el-input
+            v-model="form.username"
+            :disabled="!!editingId"
+            :maxlength="32"
+            show-word-limit
+            placeholder="登录用户名"
+          />
         </el-form-item>
         <el-form-item :label="editingId ? '新密码' : '密码'" :prop="editingId ? '' : 'password'">
           <el-input
             v-model="form.password"
             type="password"
             show-password
+            :maxlength="32"
             :placeholder="editingId ? '不修改请留空' : '至少 6 位'"
           />
         </el-form-item>
         <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="form.nickname" placeholder="显示名称" />
+          <el-input v-model="form.nickname" :maxlength="10" show-word-limit placeholder="显示名称" />
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="form.enabled" />
@@ -144,9 +151,19 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '至少 6 位', trigger: 'blur' }],
-  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }]
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { max: 32, message: '最多32个字', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '至少 6 位', trigger: 'blur' },
+    { max: 32, message: '最多32位', trigger: 'blur' }
+  ],
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { max: 10, message: '最多10个字', trigger: 'blur' }
+  ]
 }
 
 const editingSelfSuper = computed(() => {

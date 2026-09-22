@@ -8,9 +8,18 @@ const { parseDishTags, parseDishPrice, parseDishSales } = require('../utils/dish
 const { allocRestaurantCode } = require('../utils/restaurantCode')
 const { pageTake, pageSkip } = require('../utils/pager')
 const { ensureRestaurantWxaCode } = require('../utils/wxacode')
+const { normalizeHm, isEffectivelyOpen } = require('../utils/businessHours')
+const { hashPassword } = require('../utils/password')
+const { resolveLockedImageUpdate } = require('../utils/lockedImage')
 
 const router = express.Router()
 router.use(adminRequired)
+
+/** 非整数 :id（如 abc）直接 400，避免 Prisma 吃到 NaN 变 500 */
+router.param('id', (req, res, next, value) => {
+  if (!Number.isInteger(Number(value))) return fail(res, 400, '无效的餐厅ID', 400)
+  next()
+})
 
 function denyOtherRestaurant(req, res, restaurantId) {
   if (!assertOrgRestaurantAccess(req, restaurantId)) {
@@ -36,6 +45,8 @@ function formatRestaurant(row) {
     name: row.name,
     logo: resolvePublicUrl(row.logo || ''),
     coverImage: resolvePublicUrl(row.coverImage || ''),
+    licenseImage: resolvePublicUrl(row.licenseImage || ''),
+    foodSafetyLicenseImage: resolvePublicUrl(row.foodSafetyLicenseImage || ''),
     cuisineTypeId: row.cuisineTypeId,
     cuisineName: row.cuisineType?.name || '',
     phone: row.phone || '',
@@ -46,6 +57,9 @@ function formatRestaurant(row) {
     monthlySales: row.monthlySales,
     status: row.status,
     open: row.open,
+    openTime: row.openTime || '',
+    closeTime: row.closeTime || '',
+    effectivelyOpen: isEffectivelyOpen(row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     dishCount: row._count?.dishes ?? undefined,
@@ -130,8 +144,8 @@ router.post('/', requirePermission('restaurant:edit'), async (req, res, next) =>
       data: {
         code: await allocRestaurantCode(),
         name,
-        logo: body.logo || '',
-        coverImage: body.coverImage || '',
+        logo: toStoredPath(body.logo || ''),
+        coverImage: toStoredPath(body.coverImage || ''),
         cuisineTypeId: body.cuisineTypeId ? Number(body.cuisineTypeId) : null,
         phone: body.phone || '',
         address: body.address || '',
@@ -154,10 +168,21 @@ router.put('/:id', requirePermission('restaurant:edit'), async (req, res, next) 
     const id = Number(req.params.id)
     if (denyOtherRestaurant(req, res, id)) return
     const body = req.body || {}
+    const isPlatformAdmin = !req.admin.restaurantId
+    const needCurrent =
+      body.licenseImage !== undefined || body.foodSafetyLicenseImage !== undefined
+    const current = needCurrent
+      ? await prisma.restaurant.findUnique({
+          where: { id },
+          select: { licenseImage: true, foodSafetyLicenseImage: true }
+        })
+      : null
+    if (needCurrent && !current) return fail(res, 404, '餐厅不存在', 404)
+
     const data = {}
     if (body.name != null) data.name = String(body.name).trim()
-    if (body.logo != null) data.logo = body.logo
-    if (body.coverImage != null) data.coverImage = body.coverImage
+    if (body.logo != null) data.logo = toStoredPath(body.logo)
+    if (body.coverImage != null) data.coverImage = toStoredPath(body.coverImage)
     if (body.cuisineTypeId !== undefined) {
       data.cuisineTypeId = body.cuisineTypeId ? Number(body.cuisineTypeId) : null
     }
@@ -166,8 +191,34 @@ router.put('/:id', requirePermission('restaurant:edit'), async (req, res, next) 
     if (body.latitude != null) data.latitude = Number(body.latitude) || 0
     if (body.longitude != null) data.longitude = Number(body.longitude) || 0
     if (body.description != null) data.description = body.description
-    if (body.status != null && !req.admin.restaurantId) data.status = String(body.status)
+    if (body.status != null && isPlatformAdmin) data.status = String(body.status)
     if (body.open != null) data.open = !!body.open
+    if (body.openTime !== undefined) {
+      const t = normalizeHm(body.openTime)
+      if (t == null) return fail(res, 400, '营业开始时间格式应为 HH:mm')
+      data.openTime = t
+    }
+    if (body.closeTime !== undefined) {
+      const t = normalizeHm(body.closeTime)
+      if (t == null) return fail(res, 400, '营业结束时间格式应为 HH:mm')
+      data.closeTime = t
+    }
+    try {
+      const license = resolveLockedImageUpdate(current?.licenseImage, body.licenseImage, {
+        isPlatformAdmin,
+        label: '营业执照'
+      })
+      if (license !== undefined) data.licenseImage = license
+      const food = resolveLockedImageUpdate(
+        current?.foodSafetyLicenseImage,
+        body.foodSafetyLicenseImage,
+        { isPlatformAdmin, label: '食品安全许可证' }
+      )
+      if (food !== undefined) data.foodSafetyLicenseImage = food
+    } catch (e) {
+      if (e.statusCode === 403) return fail(res, 403, e.message, 403)
+      throw e
+    }
 
     const row = await prisma.restaurant.update({
       where: { id },
@@ -190,6 +241,53 @@ router.put('/:id/open', requirePermission('restaurant:edit'), async (req, res, n
     return success(res, { id: row.id, open: row.open })
   } catch (e) {
     if (e.code === 'P2025') return fail(res, 404, '餐厅不存在', 404)
+    next(e)
+  }
+})
+
+/** 设置门店后台登录密码（用户名=门店电话） */
+router.put('/:id/password', requirePermission('restaurant:edit'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (denyOtherRestaurant(req, res, id)) return
+    const password = String(req.body?.password || '').trim()
+    if (password.length < 6) return fail(res, 400, '密码至少 6 位')
+
+    const restaurant = await prisma.restaurant.findUnique({ where: { id } })
+    if (!restaurant) return fail(res, 404, '餐厅不存在', 404)
+    const username = String(restaurant.phone || '').trim()
+    if (!/^1\d{10}$/.test(username)) {
+      return fail(res, 400, '请先保存有效的门店手机号（11 位）作为登录账号')
+    }
+
+    const hashed = hashPassword(password)
+    const existing = await prisma.adminUser.findUnique({ where: { username } })
+    if (existing) {
+      await prisma.adminUser.update({
+        where: { id: existing.id },
+        data: {
+          password: hashed,
+          restaurantId: id,
+          nickname: restaurant.name || username,
+          enabled: true,
+          isSuper: false
+        }
+      })
+    } else {
+      await prisma.adminUser.create({
+        data: {
+          username,
+          password: hashed,
+          nickname: restaurant.name || username,
+          enabled: true,
+          isSuper: false,
+          permissions: [],
+          restaurantId: id
+        }
+      })
+    }
+    return success(res, { username }, '密码已设置')
+  } catch (e) {
     next(e)
   }
 })
@@ -303,6 +401,7 @@ router.post('/:id/dishes', requirePermission('restaurant:menu'), async (req, res
     if (denyOtherRestaurant(req, res, restaurantId)) return
     const { name, price, categoryId, image, desc, visible, sort, tags, sales } = req.body || {}
     if (!name || !categoryId) return fail(res, 400, '名称、价格、分类必填')
+    if (!String(image || '').trim()) return fail(res, 400, '请上传菜品主图')
     const parsedPrice = parseDishPrice(price)
     if (parsedPrice == null) return fail(res, 400, '价格必须是大于等于 0 的数字')
     const parsedSales = sales == null || sales === '' ? 0 : parseDishSales(sales)
@@ -344,6 +443,9 @@ router.put('/:id/dishes/:dishId', requirePermission('restaurant:menu'), async (r
         where: { id: Number(body.categoryId), restaurantId }
       })
       if (!cat) return fail(res, 400, '分类不存在')
+    }
+    if (body.image != null && !String(body.image || '').trim()) {
+      return fail(res, 400, '请上传菜品主图')
     }
     let parsedPrice
     if (body.price !== undefined) {

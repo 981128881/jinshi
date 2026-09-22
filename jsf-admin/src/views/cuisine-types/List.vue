@@ -28,8 +28,12 @@
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑品类' : '新增品类'" width="420px">
       <el-form :model="form" label-width="80px">
-        <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="图标"><el-input v-model="form.icon" placeholder="可选 emoji/文字" /></el-form-item>
+        <el-form-item label="名称" required>
+          <el-input v-model="form.name" :maxlength="20" show-word-limit placeholder="品类名称" />
+        </el-form-item>
+        <el-form-item label="图标">
+          <el-input v-model="form.icon" :maxlength="8" show-word-limit placeholder="可选 emoji/文字" />
+        </el-form-item>
         <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" /></el-form-item>
         <el-form-item label="显示"><el-switch v-model="form.visible" /></el-form-item>
       </el-form>
@@ -79,11 +83,15 @@ function openEdit(row) {
 }
 
 async function handleSave() {
-  if (!form.name.trim()) return ElMessage.warning('请填写名称')
+  const name = String(form.name || '').trim().slice(0, 20)
+  const icon = String(form.icon || '').trim().slice(0, 8)
+  if (!name) return ElMessage.warning('请填写名称')
+  form.name = name
+  form.icon = icon
   saving.value = true
   try {
-    if (editingId.value) await updateCuisineType(editingId.value, { ...form })
-    else await createCuisineType({ ...form })
+    if (editingId.value) await updateCuisineType(editingId.value, { ...form, name, icon })
+    else await createCuisineType({ ...form, name, icon })
     dialogVisible.value = false
     ElMessage.success('已保存')
     loadData()

@@ -29,19 +29,19 @@
       </el-row>
 
       <el-row :gutter="16" class="section-row">
-        <el-col :xs="24" :sm="8">
-          <el-card shadow="never" class="todo-card todo-warn" @click="$router.push('/reservations')">
+        <el-col :xs="24" :sm="canReviewOnboarding ? 8 : 12">
+          <el-card shadow="never" class="todo-card todo-warn" @click="$router.push('/reservations?status=submitted')">
             <div class="todo-num">{{ stats.pendingSubmitted ?? stats.pendingPay }}</div>
             <div class="todo-label">待接单</div>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="8">
-          <el-card shadow="never" class="todo-card todo-primary" @click="$router.push('/reservations')">
-            <div class="todo-num">{{ stats.pendingAccepted ?? stats.pendingShip }}</div>
-            <div class="todo-label">制作中</div>
+        <el-col :xs="24" :sm="canReviewOnboarding ? 8 : 12">
+          <el-card shadow="never" class="todo-card todo-primary" @click="$router.push('/reservations?status=preparing')">
+            <div class="todo-num">{{ preparingCount }}</div>
+            <div class="todo-label">备餐中</div>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="8">
+        <el-col v-if="canReviewOnboarding" :xs="24" :sm="8">
           <el-card shadow="never" class="todo-card todo-danger" @click="$router.push('/onboarding')">
             <div class="todo-num">{{ stats.pendingOnboarding ?? 0 }}</div>
             <div class="todo-label">待审入驻</div>
@@ -110,11 +110,11 @@
           <el-card shadow="never">
             <template #header>
               <div class="card-header-row">
-                <span class="card-title">待取餐</span>
-                <el-link type="primary" @click="$router.push('/reservations')">去处理</el-link>
+                <span class="card-title">备餐中</span>
+                <el-link type="primary" @click="$router.push('/reservations?status=preparing')">去处理</el-link>
               </div>
             </template>
-            <el-table :data="[]" size="small" stripe empty-text="请到预约单查看待取餐列表">
+            <el-table :data="[]" size="small" stripe empty-text="请到预约单查看备餐中列表">
               <el-table-column prop="name" label="说明" min-width="140" />
             </el-table>
           </el-card>
@@ -136,8 +136,17 @@ import {
 } from '@element-plus/icons-vue'
 import { fetchDashboard } from '@/api/admin'
 import { useUserStore } from '@/stores/user'
+import { usePermissionStore } from '@/stores/permission'
+import { PERMISSION } from '@/constants/permissions'
 
 const userStore = useUserStore()
+const permissionStore = usePermissionStore()
+const canReviewOnboarding = computed(() => permissionStore.has(PERMISSION.MENU_ONBOARDING))
+const preparingCount = computed(
+  () =>
+    Number(stats.value.pendingAccepted ?? stats.value.pendingShip ?? 0) +
+    Number(stats.value.pendingReady ?? stats.value.pendingReceive ?? 0)
+)
 const displayName = computed(
   () => userStore.displayName || userStore.username || '管理员'
 )
@@ -225,9 +234,9 @@ const statCards = computed(() => [
     bg: 'linear-gradient(135deg,#f59e0b,#fbbf24)'
   },
   {
-    label: '待取餐',
-    value: stats.value.pendingReady ?? stats.value.pendingReceive,
-    sub: '制作完成待取',
+    label: '备餐中',
+    value: preparingCount.value,
+    sub: '已接单待完成',
     icon: Box,
     bg: 'linear-gradient(135deg,#64748b,#94a3b8)'
   },

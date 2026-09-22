@@ -4,15 +4,15 @@
       <div>
         <el-button @click="$router.push('/reservations')">返回列表</el-button>
         <div v-if="detail" class="title-row">
-          <h2 class="title">预约 {{ detail.id }}</h2>
-          <el-tag size="small" :type="statusTagType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
+          <h2 class="title">预约 {{ detail.id }} · #{{ detail.dailyNo || '—' }}</h2>
+          <el-tag size="small" :type="statusTagType(detail.status)" effect="light">{{ statusLabel(detail.status) }}</el-tag>
         </div>
         <p v-if="detail" class="sub">{{ detail.restaurantName }} · {{ formatTime(detail.reserveAt) }}</p>
       </div>
       <div class="head-actions">
         <el-button v-if="can('accepted')" type="primary" @click="setStatus('accepted')">接单</el-button>
-        <el-button v-if="can('ready')" type="success" @click="setStatus('ready')">制作完成</el-button>
-        <el-button v-if="can('completed')" type="success" @click="setStatus('completed')">完成取餐</el-button>
+        <el-button v-if="can('ready')" type="success" @click="setStatus('ready')">备餐完成</el-button>
+        <el-button v-if="can('completed')" type="success" @click="setStatus('completed')">确认完成</el-button>
         <el-button v-if="can('cancelled')" type="danger" plain @click="setStatus('cancelled')">取消</el-button>
       </div>
     </div>
@@ -21,8 +21,9 @@
 
     <el-descriptions v-if="detail" class="info-block" :column="2" border>
       <el-descriptions-item label="单号">{{ detail.id }}</el-descriptions-item>
+      <el-descriptions-item label="当日序号">#{{ detail.dailyNo || '—' }}</el-descriptions-item>
       <el-descriptions-item label="状态">
-        <el-tag size="small" :type="statusTagType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
+        <el-tag size="small" :type="statusTagType(detail.status)" effect="light">{{ statusLabel(detail.status) }}</el-tag>
       </el-descriptions-item>
       <el-descriptions-item label="餐厅">{{ detail.restaurantName }}</el-descriptions-item>
       <el-descriptions-item label="金额">
@@ -93,8 +94,8 @@ const NEXT = {
 
 const LABELS = {
   submitted: '待接单',
-  accepted: '制作中',
-  ready: '待取餐',
+  accepted: '备餐中',
+  ready: '备餐中',
   completed: '已完成',
   cancelled: '已取消'
 }
@@ -119,8 +120,8 @@ function statusTagType(status) {
     {
       submitted: 'warning',
       accepted: 'primary',
-      ready: 'success',
-      completed: 'info',
+      ready: 'primary',
+      completed: 'success',
       cancelled: 'danger'
     }[status] || 'info'
   )

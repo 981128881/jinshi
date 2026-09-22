@@ -14,6 +14,7 @@ function getUploadDir(type) {
   if (type === 'product') folder = 'products'
   else if (type === 'avatar') folder = path.join('uploads', 'avatars')
   else if (type === 'banner') folder = path.join('uploads', 'banners')
+  else if (type === 'shop') folder = path.join('uploads', 'shops')
   const dir = path.join(__dirname, '../../public', folder)
   ensureDir(dir)
   return dir
@@ -22,7 +23,16 @@ function getUploadDir(type) {
 const storage = multer.diskStorage({
   destination(req, file, cb) {
     const t = req.body?.type
-    const type = t === 'product' ? 'product' : t === 'avatar' ? 'avatar' : t === 'banner' ? 'banner' : 'category'
+    const type =
+      t === 'product'
+        ? 'product'
+        : t === 'avatar'
+          ? 'avatar'
+          : t === 'banner'
+            ? 'banner'
+            : t === 'shop'
+              ? 'shop'
+              : 'category'
     cb(null, getUploadDir(type))
   },
   filename(req, file, cb) {

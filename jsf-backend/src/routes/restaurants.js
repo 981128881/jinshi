@@ -5,6 +5,7 @@ const { resolvePublicUrl } = require('../utils/publicUrl')
 const { parseDishTags, parseDishSales } = require('../utils/dishTags')
 const { verifyToken } = require('../utils/jwt')
 const { getOrSet, CACHE_KEYS } = require('../db/redis')
+const { isEffectivelyOpen } = require('../utils/businessHours')
 
 const router = express.Router()
 const LIST_TAKE = 50
@@ -48,7 +49,9 @@ function mapRestaurant(row, extra = {}) {
     longitude: row.longitude,
     description: row.description || '',
     monthlySales: row.monthlySales || 0,
-    open: row.open,
+    openTime: row.openTime || '',
+    closeTime: row.closeTime || '',
+    open: isEffectivelyOpen(row),
     status: row.status,
     distanceKm: extra.distanceKm != null ? Number(extra.distanceKm.toFixed(1)) : null,
     visited: !!extra.visited,
@@ -69,7 +72,9 @@ function mapRestaurantCard(row, extra = {}) {
     latitude: row.latitude,
     longitude: row.longitude,
     monthlySales: row.monthlySales || 0,
-    open: row.open,
+    openTime: row.openTime || '',
+    closeTime: row.closeTime || '',
+    open: isEffectivelyOpen(row),
     status: row.status,
     distanceKm: extra.distanceKm != null ? Number(extra.distanceKm.toFixed(1)) : null,
     visited: !!extra.visited,
@@ -139,6 +144,8 @@ router.get('/', async (req, res, next) => {
         longitude: true,
         monthlySales: true,
         open: true,
+        openTime: true,
+        closeTime: true,
         status: true,
         cuisineType: { select: { name: true } }
       }

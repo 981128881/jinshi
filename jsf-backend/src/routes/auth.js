@@ -13,26 +13,25 @@ function buildAuthResult(user) {
   return { token, userInfo: formatUser(user) }
 }
 
-function authModeHint() {
-  return {
-    mock: !!config.wx.mock,
-    configured: !!(config.wx.appId && config.wx.secret)
+function requireWxConfigured(res) {
+  if (!config.wx.appId || !config.wx.secret) {
+    fail(res, 503, '服务器未配置微信登录，请填写 WX_APPID / WX_SECRET 后重启', 503)
+    return false
   }
+  return true
 }
 
 /** 调试：查看微信登录配置状态（不含密钥） */
 router.get('/wx-status', (req, res) => {
   return success(res, {
-    ...authModeHint(),
+    configured: !!(config.wx.appId && config.wx.secret),
     appId: config.wx.appId ? `${config.wx.appId.slice(0, 6)}****` : ''
   })
 })
 
 router.post('/wx-login', async (req, res, next) => {
   try {
-    if (!config.wx.mock && (!config.wx.appId || !config.wx.secret)) {
-      return fail(res, 503, '服务器未配置微信登录，请填写 WX_APPID / WX_SECRET 后重启', 503)
-    }
+    if (!requireWxConfigured(res)) return
     const { code } = req.body || {}
     if (!code) return fail(res, 400, '缺少 code')
 
@@ -48,9 +47,7 @@ router.post('/wx-login', async (req, res, next) => {
 
 router.post('/phone-login', async (req, res, next) => {
   try {
-    if (!config.wx.mock && (!config.wx.appId || !config.wx.secret)) {
-      return fail(res, 503, '服务器未配置微信登录，请填写 WX_APPID / WX_SECRET 后重启', 503)
-    }
+    if (!requireWxConfigured(res)) return
     const { loginCode, phoneCode } = req.body || {}
     if (!loginCode || !phoneCode) return fail(res, 400, '缺少 loginCode 或 phoneCode')
 
@@ -64,24 +61,6 @@ router.post('/phone-login', async (req, res, next) => {
       update: { phone }
     })
 
-    return success(res, buildAuthResult(user))
-  } catch (e) {
-    next(e)
-  }
-})
-
-/** 开发环境模拟登录，便于本地联调 */
-router.post('/dev-login', async (req, res, next) => {
-  try {
-    if (process.env.DEV_LOGIN !== 'true') {
-      return fail(res, 403, '开发登录未启用', 403)
-    }
-    const openid = 'dev_mock_openid'
-    const user = await prisma.user.upsert({
-      where: { openid },
-      create: { openid, nickname: '测试用户', phone: '13800138000' },
-      update: {}
-    })
     return success(res, buildAuthResult(user))
   } catch (e) {
     next(e)

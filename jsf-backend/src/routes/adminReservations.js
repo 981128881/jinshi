@@ -5,6 +5,7 @@ const { adminRequired, assertOrgRestaurantAccess } = require('../middleware/admi
 const { requirePermission } = require('../middleware/adminPermission')
 const { resolvePublicUrl } = require('../utils/publicUrl')
 const { pageTake, pageSkip } = require('../utils/pager')
+const { resolveOrderStatusFilter } = require('../utils/reservationStatus')
 
 const router = express.Router()
 router.use(adminRequired)
@@ -20,6 +21,8 @@ const NEXT = {
 function formatOrder(o) {
   return {
     id: o.id,
+    dailyNo: o.dailyNo || 0,
+    dailyDate: o.dailyDate || '',
     status: o.status,
     totalAmount: o.totalAmount,
     remark: o.remark || '',
@@ -31,6 +34,7 @@ function formatOrder(o) {
     readyAt: o.readyAt,
     completedAt: o.completedAt,
     cancelledAt: o.cancelledAt,
+    cancelSource: o.cancelSource || '',
     restaurantId: o.restaurantId,
     restaurantName: o.restaurant?.name || '',
     userId: o.userId,
@@ -46,13 +50,26 @@ function formatOrder(o) {
   }
 }
 
+/** 纯日期补全天；带时分秒则按原值 */
+function parseDateBound(v, endOfDay) {
+  const s = String(v || '').trim()
+  if (!s) return null
+  const d = new Date(s.includes('T') ? s : s.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return null
+  if (endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    d.setHours(23, 59, 59, 999)
+  }
+  return d
+}
+
 router.get('/', requirePermission('menu:reservations'), async (req, res, next) => {
   try {
     const { status, restaurantId, keyword, page = 1, pageSize = 10, dateFrom, dateTo } = req.query
     const take = pageTake(pageSize)
     const skip = pageSkip(page, take)
     const where = {}
-    if (status) where.status = String(status)
+    const statusFilter = resolveOrderStatusFilter(status)
+    if (statusFilter) where.status = statusFilter
 
     if (req.admin.restaurantId) {
       where.restaurantId = Number(req.admin.restaurantId)
@@ -71,26 +88,22 @@ router.get('/', requirePermission('menu:reservations'), async (req, res, next) =
     }
 
     if (dateFrom || dateTo) {
-      where.createdAt = {}
+      where.reserveAt = {}
       if (dateFrom) {
-        const d = new Date(dateFrom)
-        if (!Number.isNaN(d.getTime())) where.createdAt.gte = d
+        const d = parseDateBound(dateFrom, false)
+        if (d) where.reserveAt.gte = d
       }
       if (dateTo) {
-        const d = new Date(dateTo)
-        if (!Number.isNaN(d.getTime())) {
-          d.setHours(23, 59, 59, 999)
-          where.createdAt.lte = d
-        }
+        const d = parseDateBound(dateTo, true)
+        if (d) where.reserveAt.lte = d
       }
-      if (!Object.keys(where.createdAt).length) delete where.createdAt
+      if (!Object.keys(where.reserveAt).length) delete where.reserveAt
     }
 
     const pendingWhere = { status: 'submitted' }
     if (where.restaurantId) pendingWhere.restaurantId = where.restaurantId
 
-    const orderBy =
-      where.status === 'cancelled' ? { cancelledAt: 'desc' } : { createdAt: 'desc' }
+    const orderBy = String(status || '') === 'cancelled' ? { cancelledAt: 'desc' } : { createdAt: 'desc' }
 
     const [orders, total, pendingSubmitted] = await Promise.all([
       prisma.order.findMany({
@@ -145,7 +158,10 @@ router.post('/:id/status', requirePermission('reservation:status'), async (req, 
     if (status === 'accepted') data.acceptedAt = new Date()
     if (status === 'ready') data.readyAt = new Date()
     if (status === 'completed') data.completedAt = new Date()
-    if (status === 'cancelled') data.cancelledAt = new Date()
+    if (status === 'cancelled') {
+      data.cancelledAt = new Date()
+      data.cancelSource = 'admin'
+    }
 
     const updated = await prisma.order.update({
       where: { id: order.id },

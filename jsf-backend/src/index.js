@@ -74,7 +74,8 @@ async function bootstrap() {
       redis: isRedisReady() ? 'enabled' : 'disabled',
       requestTimeoutMs: process.env.REQUEST_TIMEOUT_MS || 30000
     })
-    if (config.wx.mock) logger.info('微信登录: MOCK 模式')
+    if (config.wx.appId) logger.info('微信登录: 已配置')
+    else logger.warn('微信登录: 未配置 WX_APPID / WX_SECRET')
   })
 }
 

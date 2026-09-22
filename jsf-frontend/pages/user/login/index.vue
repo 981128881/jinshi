@@ -5,13 +5,9 @@
 				class="login-mascot"
 				src="../static/brand-logo.png"
 				mode="aspectFit"
-				style="width: 200rpx; height: 200rpx;"
 			/>
-			<view class="login-slogan">
-				<text class="slogan-text">登录</text>
-				<text class="slogan-brand">{{ shopName }}</text>
-				<text class="slogan-text">，方便快捷</text>
-			</view>
+			<text class="brand-name">{{ shopName }}</text>
+			<text class="brand-slogan">齐市美食，一键预约</text>
 
 			<view class="agreement-row" @click="agreed = !agreed">
 				<view class="agreement-check" :class="{ checked: agreed }">
@@ -34,16 +30,6 @@
 				@click="handleLoginClick"
 				@getphonenumber="onPhoneLogin"
 			>手机号快捷登录</AppButton>
-
-			<AppButton
-				v-if="enableDevLogin"
-				class="dev-login-btn"
-				type="default"
-				block
-				size="md"
-				:loading="isLoading('devLogin')"
-				@click="onDevLogin"
-			>模拟登录（开发测试）</AppButton>
 		</view>
 		<AppHost />
 	</view>
@@ -52,10 +38,9 @@
 <script>
 	import pageBase from '../../../mixins/page-base.js'
 	import AppButton from '../../../components/AppButton.vue'
-	import { phoneNumberLogin, devMockLogin } from '../../../utils/auth.js'
+	import { phoneNumberLogin } from '../../../utils/auth.js'
 	import { fetchShopConfig } from '../api/home.js'
 	import ROUTES from '../../../constants/routes.js'
-	import config from '../../../config/index.js'
 
 	export default {
 		components: { AppButton },
@@ -63,8 +48,7 @@
 		data() {
 			return {
 				shopName: '金石菜牌齐市店',
-				agreed: false,
-				enableDevLogin: config.enableDevLogin
+				agreed: false
 			}
 		},
 		onLoad() {
@@ -92,16 +76,6 @@
 					setTimeout(() => uni.navigateBack(), 500)
 				}
 			},
-			async onDevLogin() {
-				if (!this.agreed) {
-					uni.showToast({ title: '请先阅读并同意相关协议', icon: 'none' })
-					return
-				}
-				const data = await this.runAction('devLogin', () => devMockLogin())
-				if (data) {
-					setTimeout(() => uni.navigateBack(), 500)
-				}
-			},
 			openAgreement(type) {
 				uni.navigateTo({ url: `${ROUTES.AGREEMENT}?type=${type}` })
 			}
@@ -112,10 +86,10 @@
 <style scoped>
 .login-page {
 	min-height: 100vh;
-	background: #ffffff;
+	background: linear-gradient(180deg, #E8EFE4 0%, #F5F4F0 42%, #F5F4F0 100%);
 }
 .login-body {
-	padding: 80rpx 48rpx 48rpx;
+	padding: 120rpx 48rpx 48rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -123,38 +97,25 @@
 .login-mascot {
 	width: 200rpx;
 	height: 200rpx;
-	margin-bottom: 48rpx;
+	margin-bottom: 32rpx;
 }
-.login-slogan {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	margin-bottom: 48rpx;
-	line-height: 1.5;
+.brand-name {
+	font-size: 44rpx;
+	font-weight: 700;
+	color: var(--color-text);
+	margin-bottom: 12rpx;
 }
-.slogan-text {
-	font-size: 34rpx;
-	color: #333333;
-	font-weight: 500;
-}
-.slogan-brand {
-	font-size: 34rpx;
-	color: var(--color-price);
-	font-weight: 600;
+.brand-slogan {
+	font-size: 26rpx;
+	color: var(--color-text-secondary);
+	margin-bottom: 96rpx;
 }
 .login-btn {
 	width: 100%;
-	height: 88rpx !important;
+	height: 96rpx !important;
 	font-size: 30rpx !important;
-	border-radius: 44rpx !important;
-	margin-top: 32rpx;
-}
-.dev-login-btn {
-	width: 100%;
-	height: 88rpx !important;
-	font-size: 28rpx !important;
-	border-radius: 44rpx !important;
-	margin-top: 24rpx;
+	border-radius: 999rpx !important;
+	margin-top: 48rpx;
 }
 .agreement-row {
 	display: flex;
@@ -188,10 +149,10 @@
 .agreement-text {
 	flex: 1;
 	font-size: 22rpx;
-	color: #999999;
+	color: var(--color-text-muted);
 	line-height: 1.6;
 }
 .agreement-link {
-	color: var(--color-price);
+	color: var(--color-primary-dark);
 }
 </style>

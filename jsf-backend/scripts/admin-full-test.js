@@ -59,6 +59,48 @@ async function raw(method, path, { token, body, headers = {}, timeout = 15000 } 
   }
 }
 
+/** fetch 会规范化 .. ；用 http 原样发路径才能测穿越拦截 */
+function rawHttp(method, reqPath, { token, timeout = 15000 } = {}) {
+  const http = require('http')
+  const u = new URL(BASE)
+  return new Promise((resolve) => {
+    const started = Date.now()
+    const headers = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: u.port || 80,
+        path: reqPath,
+        method,
+        headers,
+        timeout
+      },
+      (res) => {
+        let text = ''
+        res.on('data', (c) => {
+          text += c
+        })
+        res.on('end', () => {
+          let data = null
+          try {
+            data = text ? JSON.parse(text) : null
+          } catch {
+            data = { raw: text.slice(0, 300) }
+          }
+          resolve({ ok: true, status: res.statusCode, data, ms: Date.now() - started, text })
+        })
+      }
+    )
+    req.on('error', (e) => resolve({ ok: false, error: e.message, ms: Date.now() - started }))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve({ ok: false, error: `超时 ${timeout}ms`, ms: Date.now() - started })
+    })
+    req.end()
+  })
+}
+
 function bizOk(res) {
   return res.ok && res.status < 400 && res.data?.code === 0
 }
@@ -240,7 +282,13 @@ async function main() {
     if (catId) {
       const dish = await raw('POST', `/api/admin/restaurants/${shopA.id}/dishes`, {
         token: token2,
-        body: { name: `__test_dish_${Date.now()}`, price: 12.5, categoryId: catId, tags: ['招牌', '新品'] }
+        body: {
+          name: `__test_dish_${Date.now()}`,
+          price: 12.5,
+          categoryId: catId,
+          image: '/static/uploads/shop/__test_dish.jpg',
+          tags: ['招牌', '新品']
+        }
       })
       rec('功能', 'POST 菜品', bizOk(dish) && dish.data.data?.price === 12.5, `price=${dish.data?.data?.price}`)
       const dishId = dish.data?.data?.id
@@ -345,7 +393,12 @@ async function main() {
     if (zeroPrice.data?.data?.id) {
       const d0 = await raw('POST', `/api/admin/restaurants/${shopA.id}/dishes`, {
         token: token2,
-        body: { name: `__p0_${Date.now()}`, price: 0, categoryId: zeroPrice.data.data.id }
+        body: {
+          name: `__p0_${Date.now()}`,
+          price: 0,
+          categoryId: zeroPrice.data.data.id,
+          image: '/static/uploads/shop/__test_dish.jpg'
+        }
       })
       rec('边界', '菜品价格 0 允许', bizOk(d0) && d0.data.data?.price === 0)
       if (d0.data?.data?.id) {
@@ -497,6 +550,17 @@ async function main() {
   // ---------- 5. 安全 ----------
   console.log('\n[5] 安全测试')
 
+  const cors = await raw('GET', '/health', { headers: { Origin: 'https://evil.example' } })
+  const acao = cors.headers['access-control-allow-origin']
+  rec('安全', 'CORS 反射 Origin', true, `ACA-Origin=${acao || '(none)'} cors() 默认可能为 *`)
+
+  // 字面量 JSON，避免对象字面量 __proto__ 被当成原型而不是字段
+  const proto = await raw('POST', '/api/admin/login', {
+    body: `{"username":${JSON.stringify(ADMIN_USER)},"password":${JSON.stringify(ADMIN_PASS)},"__proto__":{"isSuper":true}}`,
+    headers: { 'Content-Type': 'application/json' }
+  })
+  rec('安全', 'JSON __proto__ 污染登录', bizOk(proto), 'Express json 默认不 prototype pollution')
+
   const brute = []
   for (let i = 0; i < 8; i++) {
     brute.push(raw('POST', '/api/admin/login', { body: { username: ADMIN_USER, password: `bad${i}` } }))
@@ -504,16 +568,6 @@ async function main() {
   const bruteRes = await Promise.all(brute)
   const locked = bruteRes.some((r) => r.status === 429)
   rec('安全', '登录无速率限制', !locked, locked ? '有 429（好）' : '8 次错误密码均无锁定')
-
-  const cors = await raw('GET', '/health', { headers: { Origin: 'https://evil.example' } })
-  const acao = cors.headers['access-control-allow-origin']
-  rec('安全', 'CORS 反射 Origin', true, `ACA-Origin=${acao || '(none)'} cors() 默认可能为 *`)
-
-  const proto = await raw('POST', '/api/admin/login', {
-    body: JSON.stringify({ username: ADMIN_USER, password: ADMIN_PASS, __proto__: { isSuper: true } }),
-    headers: { 'Content-Type': 'application/json' }
-  })
-  rec('安全', 'JSON __proto__ 污染登录', bizOk(proto), 'Express json 默认不 prototype pollution')
 
   if (mToken && shopA && shopB && merchant.restaurantId) {
     const otherId = Number(merchant.restaurantId) === Number(shopA.id) ? shopB.id : shopA.id
@@ -588,7 +642,7 @@ async function main() {
   })
   rec('安全', 'JWT alg=none', noneAlg.status === 401, noneAlg.data?.message)
 
-  const pathTrav = await raw('GET', '/api/admin/restaurants/../admins', { token: token2 })
+  const pathTrav = await rawHttp('GET', '/api/admin/restaurants/../admins', { token: token2 })
   rec('安全', '路径穿越 /restaurants/../admins', pathTrav.status === 400 || pathTrav.status === 404, `status=${pathTrav.status}`)
 
   const staticTrav = await raw('GET', '/static/../package.json')

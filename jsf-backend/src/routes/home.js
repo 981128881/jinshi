@@ -3,6 +3,7 @@ const prisma = require('../db/prisma')
 const { getBanners } = require('../services/shop')
 const { success } = require('../utils/response')
 const { resolvePublicUrl } = require('../utils/publicUrl')
+const { isEffectivelyOpen } = require('../utils/businessHours')
 
 const router = express.Router()
 
@@ -22,17 +23,25 @@ router.get('/recommend', async (req, res, next) => {
       where: { status: 'approved', open: true },
       include: { cuisineType: true },
       orderBy: { id: 'desc' },
-      take: 10
+      take: 20
     })
-    return success(res, rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      logo: resolvePublicUrl(r.logo || ''),
-      coverImage: resolvePublicUrl(r.coverImage || ''),
-      cuisineName: r.cuisineType?.name || '',
-      address: r.address,
-      open: r.open
-    })))
+    return success(
+      res,
+      rows
+        .filter((r) => isEffectivelyOpen(r))
+        .slice(0, 10)
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          logo: resolvePublicUrl(r.logo || ''),
+          coverImage: resolvePublicUrl(r.coverImage || ''),
+          cuisineName: r.cuisineType?.name || '',
+          address: r.address,
+          openTime: r.openTime || '',
+          closeTime: r.closeTime || '',
+          open: true
+        }))
+    )
   } catch (e) {
     next(e)
   }

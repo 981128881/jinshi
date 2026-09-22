@@ -2,11 +2,11 @@
   <div class="page-card">
     <el-form ref="formRef" :model="form" label-width="140px" style="max-width: 560px" v-loading="loading">
       <el-divider content-position="left">平台信息</el-divider>
-      <el-form-item label="平台名称">
-        <el-input v-model="form.name" />
+      <el-form-item label="平台名称" required>
+        <el-input v-model="form.name" :maxlength="32" show-word-limit placeholder="平台名称" />
       </el-form-item>
       <el-form-item label="客服电话">
-        <el-input v-model="form.servicePhone" />
+        <el-input v-model="form.servicePhone" :maxlength="20" show-word-limit placeholder="选填" />
       </el-form-item>
 
       <el-divider content-position="left">小程序首页展示</el-divider>
@@ -58,9 +58,17 @@ async function loadData() {
 }
 
 async function handleSave() {
+  const name = String(form.name || '').trim().slice(0, 32)
+  const servicePhone = String(form.servicePhone || '').trim().slice(0, 20)
+  if (!name) {
+    ElMessage.warning('请填写平台名称')
+    return
+  }
+  form.name = name
+  form.servicePhone = servicePhone
   saving.value = true
   try {
-    await updateShopConfig({ ...form })
+    await updateShopConfig({ ...form, name, servicePhone })
     ElMessage.success('保存成功')
   } finally {
     saving.value = false

@@ -60,6 +60,10 @@ model Restaurant {
   name          String    @db.VarChar(128)
   logo          String    @default("") @db.VarChar(512)
   coverImage    String    @default("") @db.VarChar(512)
+  /// 营业执照；门店账号上传后不可改，仅平台管理员可删/换
+  licenseImage  String    @default("") @db.VarChar(512)
+  /// 食品安全许可证；同上锁定规则
+  foodSafetyLicenseImage String @default("") @db.VarChar(512)
   cuisineTypeId Int?
   cuisineType   CuisineType? @relation(fields: [cuisineTypeId], references: [id])
   phone         String    @default("") @db.VarChar(32)
@@ -70,7 +74,12 @@ model Restaurant {
   monthlySales  Int       @default(0)
   /// draft|pending|approved|rejected|disabled
   status        String    @default("pending") @db.VarChar(32)
+  /// 手动营业开关；真正是否可预约还要看 openTime/closeTime
   open          Boolean   @default(true)
+  /// 每日营业开始 HH:mm，空=不限时段
+  openTime      String    @default("") @db.VarChar(8)
+  /// 每日营业结束 HH:mm，空=不限时段；可跨零点如 22:00-02:00
+  closeTime     String    @default("") @db.VarChar(8)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   categories    MenuCategory[]
@@ -209,11 +218,17 @@ model Order {
   contactPhone String      @default("") @db.VarChar(20)
   /// 预约到店时间
   reserveAt    DateTime?
+  /// 上海自然日 YYYY-MM-DD；与 dailyNo 组成门店当日序号
+  dailyDate    String      @default("") @db.VarChar(10)
+  /// 门店当日序号，每天从 1 起
+  dailyNo      Int         @default(0)
   createdAt    DateTime    @default(now())
   acceptedAt   DateTime?
   readyAt      DateTime?
   completedAt  DateTime?
   cancelledAt  DateTime?
+  /// user|merchant|admin；后台取消不弹运营提醒
+  cancelSource String      @default("") @db.VarChar(16)
   items        OrderItem[]
 
   @@index([userId])
@@ -221,6 +236,7 @@ model Order {
   @@index([status])
   @@index([restaurantId, status])
   @@index([userId, status, restaurantId])
+  @@index([restaurantId, dailyDate])
 }
 
 model OrderItem {

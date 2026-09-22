@@ -19,7 +19,7 @@ async function merchantOpenids(restaurantId) {
 }
 
 async function sendToOpenids({ openids, templateId, page, data }) {
-  if (!templateId || config.wx.mock) return
+  if (!templateId) return
   for (const openid of openids) {
     const result = await sendSubscribeMessage({ openid, templateId, page, data })
     if (result && result.errcode && result.errcode !== 43101) {

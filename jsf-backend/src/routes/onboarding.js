@@ -61,8 +61,8 @@ router.post('/draft', authRequired, async (req, res, next) => {
     }
 
     const data = {
-      contactName: body.contactName || '',
-      contactPhone: body.contactPhone || '',
+      contactName: String(body.contactName || '').trim().slice(0, 10),
+      contactPhone: String(body.contactPhone || '').trim().slice(0, 11),
       legalPerson: body.legalPerson || '',
       licenseNo: body.licenseNo || '',
       licenseImage: body.licenseImage || '',
@@ -113,10 +113,13 @@ router.post('/submit', authRequired, async (req, res, next) => {
       }
     }
 
-    const contactName = (body.contactName || existing?.contactName || '').trim()
-    const contactPhone = (body.contactPhone || existing?.contactPhone || '').trim()
+    const contactName = (body.contactName || existing?.contactName || '').trim().slice(0, 10)
+    const contactPhone = (body.contactPhone || existing?.contactPhone || '').trim().slice(0, 11)
     if (!contactName) return fail(res, 400, '请填写联系人姓名')
     if (!/^1\d{10}$/.test(contactPhone)) return fail(res, 400, '请填写正确的手机号')
+
+    const restaurantName =
+      (body.restaurantName ?? existing?.restaurantName ?? '').trim() || `${contactName}的店`
 
     const payload = {
       contactName,
@@ -124,7 +127,7 @@ router.post('/submit', authRequired, async (req, res, next) => {
       legalPerson: body.legalPerson ?? existing?.legalPerson ?? '',
       licenseNo: body.licenseNo ?? existing?.licenseNo ?? '',
       licenseImage: body.licenseImage ?? existing?.licenseImage ?? '',
-      restaurantName: (body.restaurantName ?? existing?.restaurantName ?? '').trim(),
+      restaurantName,
       cuisineTypeId: body.cuisineTypeId ?? existing?.cuisineTypeId ?? null,
       address: (body.address ?? existing?.address ?? '').trim(),
       latitude: Number(body.latitude ?? existing?.latitude) || 0,

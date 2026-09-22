@@ -32,6 +32,10 @@ export function fetchMerchantOrders(restaurantId, params = {}, options = {}) {
 	return get(`/merchant/restaurants/${restaurantId}/orders`, params, { auth: true, ...options })
 }
 
+export function fetchMerchantOrder(restaurantId, orderId, options = {}) {
+	return get(`/merchant/restaurants/${restaurantId}/orders/${orderId}`, {}, { auth: true, ...options })
+}
+
 export function updateMerchantOrderStatus(restaurantId, orderId, status, options = {}) {
 	return post(
 		`/merchant/restaurants/${restaurantId}/orders/${orderId}/status`,

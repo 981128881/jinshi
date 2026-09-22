@@ -59,10 +59,13 @@
 	export default {
 		data() {
 			return {
-				tabs: RESERVATION_TABS.map((t) => ({
-					...t,
-					key: t.status || 'all'
-				})),
+				tabs: [
+					{ status: '', label: '全部', key: 'all' },
+					...RESERVATION_TABS.map((t) => ({
+						...t,
+						key: t.status || 'all'
+					}))
+				],
 				list: [],
 				filterStatus: '',
 				loading: false,
@@ -72,7 +75,9 @@
 		computed: {
 			emptyText() {
 				if (!this.filterStatus) return '暂无预约单'
-				return `暂无「${reservationStatusText(this.filterStatus)}」预约`
+				const tab = this.tabs.find((t) => t.status === this.filterStatus)
+				const label = tab?.label || reservationStatusText(this.filterStatus)
+				return `暂无「${label}」预约`
 			}
 		},
 		onLoad(q) {
@@ -159,44 +164,49 @@
 		box-sizing: border-box;
 	}
 	.tabs {
+		position: sticky;
+		top: 0;
+		z-index: 10;
 		display: flex;
-		background: #fff;
-		margin: 0 -24rpx 20rpx;
+		background: var(--color-card);
+		margin: 0 -24rpx 24rpx;
 		padding: 0 8rpx;
-		border-bottom: 1rpx solid #f0f0f0;
+		border-bottom: 1rpx solid var(--color-border);
+		box-shadow: 0 4rpx 16rpx rgba(61, 74, 56, 0.04);
 	}
 	.tab {
 		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 24rpx 0 20rpx;
+		padding: 28rpx 0 22rpx;
 		position: relative;
 	}
 	.tab-text {
 		font-size: 26rpx;
-		color: #909399;
+		color: var(--color-text-secondary);
 	}
 	.tab.active .tab-text {
 		color: var(--color-primary);
-		font-weight: 600;
+		font-weight: 700;
 	}
 	.tab.active::after {
 		content: '';
 		position: absolute;
 		left: 50%;
-		bottom: 8rpx;
+		bottom: 6rpx;
 		transform: translateX(-50%);
-		width: 36rpx;
+		width: 48rpx;
 		height: 6rpx;
 		border-radius: 6rpx;
 		background: var(--color-primary);
 	}
 	.card {
-		background: #fff;
-		border-radius: 16rpx;
-		padding: 24rpx;
-		margin-bottom: 16rpx;
+		background: var(--color-card);
+		border-radius: var(--radius-card);
+		padding: 28rpx;
+		margin-bottom: 20rpx;
+		box-shadow: var(--shadow-card);
 	}
 	.head {
 		display: flex;
@@ -206,44 +216,63 @@
 	}
 	.name {
 		flex: 1;
-		font-size: 30rpx;
-		font-weight: 600;
+		font-size: 32rpx;
+		font-weight: 700;
 		color: var(--color-text);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.status {
-		font-size: 26rpx;
+		font-size: 24rpx;
 		flex-shrink: 0;
+		font-weight: 600;
+		padding: 4rpx 14rpx;
+		border-radius: 999rpx;
+		background: var(--color-primary-soft);
 		color: var(--color-primary);
 	}
-	.st-cancelled { color: #909399; }
-	.st-completed { color: var(--color-success); }
+	.st-cancelled {
+		color: #909399;
+		background: #f0f0f0;
+	}
+	.st-completed {
+		color: #6F8F63;
+		background: var(--color-primary-soft);
+	}
+	.st-submitted {
+		color: #d68910;
+		background: rgba(243, 156, 18, 0.14);
+	}
+	.st-accepted,
+	.st-ready {
+		color: var(--color-primary-dark);
+		background: var(--color-primary-soft);
+	}
 	.items {
-		margin-top: 14rpx;
-		color: #606266;
+		margin-top: 16rpx;
+		color: var(--color-text-secondary);
 		font-size: 26rpx;
 		line-height: 1.5;
 	}
 	.meta {
 		display: flex;
 		align-items: center;
-		margin-top: 10rpx;
+		margin-top: 12rpx;
 		font-size: 24rpx;
 		gap: 12rpx;
 	}
 	.meta-label {
-		color: #909399;
+		color: var(--color-text-secondary);
 		flex-shrink: 0;
 	}
 	.meta-val {
 		color: var(--color-text);
 	}
 	.foot {
-		margin-top: 16rpx;
-		padding-top: 16rpx;
-		border-top: 1rpx solid var(--color-bg);
+		margin-top: 18rpx;
+		padding-top: 18rpx;
+		border-top: 1rpx solid var(--color-border);
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -251,32 +280,34 @@
 	}
 	.amount {
 		font-weight: 700;
-		color: var(--color-danger);
-		font-size: 30rpx;
+		color: var(--color-price);
+		font-size: 34rpx;
 	}
 	.time {
-		color: #909399;
+		color: var(--color-text-muted);
 		font-size: 22rpx;
 	}
 	.empty-box {
-		padding: 120rpx 40rpx;
+		padding: 140rpx 40rpx;
 		text-align: center;
 	}
 	.empty-text {
 		display: block;
-		color: #999;
-		font-size: 28rpx;
-		margin-bottom: 32rpx;
+		color: var(--color-text-secondary);
+		font-size: 30rpx;
+		font-weight: 500;
+		margin-bottom: 40rpx;
 	}
 	.btn {
 		margin: 0 auto;
-		width: 280rpx;
-		height: 72rpx;
-		line-height: 72rpx;
+		width: 300rpx;
+		height: 80rpx;
+		line-height: 80rpx;
 		background: var(--color-primary);
 		color: #fff;
 		border-radius: 999rpx;
 		font-size: 28rpx;
+		font-weight: 600;
 		border: none;
 	}
 	.btn::after {

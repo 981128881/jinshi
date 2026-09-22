@@ -71,6 +71,8 @@ router.post('/logout', async (req, res) => {
   return success(res, null)
 })
 
+router.get('/login', (_req, res) => fail(res, 405, '请使用 POST 登录', 405))
+
 router.get('/ws', (_req, res) => {
   res.status(426).end('WebSocket')
 })
@@ -256,7 +258,13 @@ router.post('/upload', (req, res, next) => {
     }
     assertImageFile(req.file.path)
     const folder =
-      type === 'product' ? 'products' : type === 'banner' ? 'uploads/banners' : 'category'
+      type === 'product'
+        ? 'products'
+        : type === 'banner'
+          ? 'uploads/banners'
+          : type === 'shop'
+            ? 'uploads/shops'
+            : 'category'
 
     let filename = req.file.filename
     if (type === 'product') {

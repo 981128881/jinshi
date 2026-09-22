@@ -11,6 +11,7 @@
             placeholder="账号"
             :prefix-icon="User"
             size="large"
+            maxlength="32"
           />
         </el-form-item>
         <el-form-item prop="password">
@@ -21,6 +22,7 @@
             :prefix-icon="Lock"
             size="large"
             show-password
+            maxlength="32"
             @keyup.enter="handleLogin"
           />
         </el-form-item>
