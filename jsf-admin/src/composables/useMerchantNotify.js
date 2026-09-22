@@ -4,8 +4,8 @@ import { getToken, isValidToken, onTokenChange } from '@/api/request/token'
 
 /** ponytail: 45s 轮询发现新单；未点「查看」仅重播语音 */
 const POLL_MS = 45_000
-/** TEMP 测试 1 分钟；测完改回 `5 * 60_000` */
-const REMIND_MS = 60_000
+/** 未点「查看」时语音重播间隔 */
+const REMIND_MS = 5 * 60_000
 const SOUND_CHECK_MS = 5_000
 const SOUND_NEW = '/sounds/new_reservation.wav'
 const SOUND_CANCEL = '/sounds/cancel_reservation.wav'
