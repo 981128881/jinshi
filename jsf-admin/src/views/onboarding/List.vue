@@ -23,7 +23,9 @@
       <el-table-column prop="restaurantCode" label="门店ID" width="120">
         <template #default="{ row }">{{ row.restaurantCode || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="restaurantName" label="门店" min-width="140" />
+      <el-table-column label="门店" min-width="140">
+        <template #default="{ row }">{{ row.restaurantName || row.contactName || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="contactName" label="联系人" width="100" />
       <el-table-column prop="contactPhone" label="电话" width="130" />
       <el-table-column label="状态" width="110">
@@ -121,7 +123,7 @@ function goDetail(id) {
 }
 
 async function approve(row) {
-  await ElMessageBox.confirm(`确认通过「${row.restaurantName}」？`, '审核通过')
+  await ElMessageBox.confirm(`确认通过「${row.restaurantName || row.contactName}」？`, '审核通过')
   await post(`/admin/onboarding/${row.id}/approve`, {})
   ElMessage.success('已通过')
   load()

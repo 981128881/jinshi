@@ -1,5 +1,6 @@
 import config from '../config/index.js'
 import { createLogger, nextRequestId } from './logger.js'
+import { rewriteWechatImages } from './wechatImage.js'
 
 const log = createLogger('api')
 
@@ -107,7 +108,8 @@ function parseResponse(res, options) {
 	const errMsg = message || msg || '请求失败'
 
 	if (config.successCode.includes(code)) {
-		return Promise.resolve(data !== undefined ? data : body)
+		const payload = data !== undefined ? data : body
+		return Promise.resolve(rewriteWechatImages(payload))
 	}
 
 	if (code === 401) {

@@ -34,9 +34,18 @@
       <div class="table-fill">
         <el-table :data="pagedDishes" stripe empty-text="暂无菜品" height="100%">
           <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column label="主图" width="72">
+            <template #default="{ row }">
+              <el-image v-if="row.image" :src="resolveDishImage(row.image)" fit="cover" class="dish-thumb" />
+              <span v-else class="muted">—</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="name" label="菜名" min-width="140" />
           <el-table-column prop="price" label="价格" width="90">
             <template #default="{ row }">¥{{ Number(row.price).toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column prop="sales" label="销量" width="80">
+            <template #default="{ row }">{{ Number(row.sales) || 0 }}</template>
           </el-table-column>
           <el-table-column label="分类" width="120">
             <template #default="{ row }">{{ categoryName(row.categoryId) }}</template>
@@ -68,6 +77,15 @@
         <el-form-item label="名称">
           <el-input v-model="dishForm.name" maxlength="64" />
         </el-form-item>
+        <el-form-item label="主图">
+          <div class="dish-image-row">
+            <el-image v-if="dishForm.image" :src="resolveDishImage(dishForm.image)" fit="cover" class="dish-thumb-lg" />
+            <el-upload :show-file-list="false" accept="image/*" :http-request="handleUploadDishImage">
+              <el-button :loading="uploading">{{ dishForm.image ? '更换' : '上传' }}</el-button>
+            </el-upload>
+            <el-button v-if="dishForm.image" @click="dishForm.image = ''">清除</el-button>
+          </div>
+        </el-form-item>
         <el-form-item label="价格">
           <el-input-number
             v-model="dishForm.price"
@@ -76,6 +94,9 @@
             :controls="false"
             style="width: 100%"
           />
+        </el-form-item>
+        <el-form-item label="销量">
+          <el-input-number v-model="dishForm.sales" :min="0" :precision="0" :controls="false" style="width: 100%" />
         </el-form-item>
         <el-form-item label="分类">
           <el-select v-model="dishForm.categoryId" style="width: 100%">
@@ -119,10 +140,12 @@ import {
   fetchRestaurantDishes,
   createRestaurantDish,
   updateRestaurantDish,
-  deleteRestaurantDish
+  deleteRestaurantDish,
+  uploadDishImage
 } from '@/api/admin'
 import AppPagination from '@/components/AppPagination.vue'
 import { useClientPager } from '@/composables/useClientPager'
+import appConfig from '@/config/index.js'
 
 const props = defineProps({
   restaurantId: {
@@ -143,8 +166,16 @@ const { page: dishPage, pageSize: dishPageSize, total: dishTotal, paged: pagedDi
 const DISH_TAG_PRESETS = ['本店特色', '五星推荐']
 const dishDialog = ref(false)
 const dishSaving = ref(false)
+const uploading = ref(false)
 const editingDishId = ref(null)
-const dishForm = reactive({ name: '', price: 0, categoryId: null, tags: [], desc: '' })
+const dishForm = reactive({ name: '', price: 0, categoryId: null, tags: [], desc: '', image: '', sales: 0 })
+
+function resolveDishImage(path) {
+  if (!path) return ''
+  if (/^https?:\/\//.test(path)) return path
+  const base = (appConfig.fileBaseUrl || '').replace(/\/$/, '')
+  return base ? `${base}${path.startsWith('/') ? path : `/${path}`}` : path
+}
 
 function asTags(v) {
   if (Array.isArray(v)) return v.filter(Boolean).map(String)
@@ -212,7 +243,9 @@ async function addDish() {
     price: 0,
     categoryId: categories.value[0].id,
     tags: [],
-    desc: ''
+    desc: '',
+    image: '',
+    sales: 0
   })
   dishDialog.value = true
 }
@@ -224,9 +257,22 @@ async function editDish(row) {
     price: row.price,
     categoryId: row.categoryId,
     tags: asTags(row.tags),
-    desc: row.desc || ''
+    desc: row.desc || '',
+    image: row.image || '',
+    sales: Number(row.sales) || 0
   })
   dishDialog.value = true
+}
+
+async function handleUploadDishImage({ file }) {
+  uploading.value = true
+  try {
+    const result = await uploadDishImage(file)
+    dishForm.image = result.path || result.url || ''
+    ElMessage.success('上传成功')
+  } finally {
+    uploading.value = false
+  }
 }
 
 async function saveDish() {
@@ -245,7 +291,9 @@ async function saveDish() {
       price: Number(dishForm.price),
       categoryId: dishForm.categoryId,
       tags: asTags(dishForm.tags),
-      desc: (dishForm.desc || '').trim()
+      desc: (dishForm.desc || '').trim(),
+      image: dishForm.image || '',
+      sales: Math.max(0, Math.floor(Number(dishForm.sales) || 0))
     }
     if (editingDishId.value) {
       await updateRestaurantDish(props.restaurantId, editingDishId.value, payload)
@@ -310,5 +358,21 @@ watch(
 }
 .muted {
   color: #94a3b8;
+}
+.dish-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+}
+.dish-thumb-lg {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.dish-image-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

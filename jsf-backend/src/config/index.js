@@ -37,7 +37,11 @@ module.exports = {
     appId: process.env.WX_APPID || '',
     secret: process.env.WX_SECRET || '',
     mock: process.env.WX_MOCK !== 'false',
-    wxaEnv: process.env.WX_WXA_ENV || 'release'
+    wxaEnv: process.env.WX_WXA_ENV || 'release',
+    subscribeOrderTmplId:
+      process.env.WX_SUBSCRIBE_TMPL_ORDER || 'HKCRZh-jslxB-ODzrZd-L2AKrZakzhlCEqcgg5I-lP400',
+    subscribeCancelTmplId:
+      process.env.WX_SUBSCRIBE_TMPL_CANCEL || 'Q4GuBW3YcoZne4ovHT4b4NIn-u2XHqh-oDp_CHcSPSS'
   },
   pay: {
     mchId: process.env.WX_MCH_ID || '',

@@ -27,7 +27,15 @@ function parseDishPrice(v) {
   return Math.round(n * 100) / 100
 }
 
-module.exports = { parseDishTags, parseDishPrice }
+/** @param {unknown} v @returns {number|null} */
+function parseDishSales(v) {
+  if (v === '' || v == null) return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.floor(n)
+}
+
+module.exports = { parseDishTags, parseDishPrice, parseDishSales }
 
 if (require.main === module) {
   const assert = require('assert')
@@ -39,5 +47,8 @@ if (require.main === module) {
   assert.equal(parseDishPrice(-1), null)
   assert.equal(parseDishPrice('abc'), null)
   assert.equal(parseDishPrice(''), null)
+  assert.equal(parseDishSales(12.9), 12)
+  assert.equal(parseDishSales(-1), null)
+  assert.equal(parseDishSales(''), null)
   console.log('ok')
 }

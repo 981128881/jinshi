@@ -3,8 +3,8 @@ const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { adminRequired, assertOrgRestaurantAccess } = require('../middleware/adminAuth')
 const { requirePermission } = require('../middleware/adminPermission')
-const { resolvePublicUrl } = require('../utils/publicUrl')
-const { parseDishTags, parseDishPrice } = require('../utils/dishTags')
+const { resolvePublicUrl, toStoredPath } = require('../utils/publicUrl')
+const { parseDishTags, parseDishPrice, parseDishSales } = require('../utils/dishTags')
 const { allocRestaurantCode } = require('../utils/restaurantCode')
 const { pageTake, pageSkip } = require('../utils/pager')
 const { ensureRestaurantWxaCode } = require('../utils/wxacode')
@@ -24,7 +24,8 @@ function formatDish(row) {
   return {
     ...row,
     image: resolvePublicUrl(row.image || ''),
-    tags: parseDishTags(row.tags)
+    tags: parseDishTags(row.tags),
+    sales: parseDishSales(row.sales) ?? 0
   }
 }
 
@@ -300,10 +301,12 @@ router.post('/:id/dishes', requirePermission('restaurant:menu'), async (req, res
   try {
     const restaurantId = Number(req.params.id)
     if (denyOtherRestaurant(req, res, restaurantId)) return
-    const { name, price, categoryId, image, desc, visible, sort, tags } = req.body || {}
+    const { name, price, categoryId, image, desc, visible, sort, tags, sales } = req.body || {}
     if (!name || !categoryId) return fail(res, 400, '名称、价格、分类必填')
     const parsedPrice = parseDishPrice(price)
     if (parsedPrice == null) return fail(res, 400, '价格必须是大于等于 0 的数字')
+    const parsedSales = sales == null || sales === '' ? 0 : parseDishSales(sales)
+    if (parsedSales == null) return fail(res, 400, '销量必须是大于等于 0 的整数')
     const cat = await prisma.menuCategory.findFirst({
       where: { id: Number(categoryId), restaurantId }
     })
@@ -314,11 +317,12 @@ router.post('/:id/dishes', requirePermission('restaurant:menu'), async (req, res
         categoryId: Number(categoryId),
         name: String(name).trim(),
         price: parsedPrice,
-        image: image || '',
+        image: toStoredPath(image || ''),
         desc: desc || '',
         visible: visible !== false,
         sort: Number(sort) || 0,
-        tags: parseDishTags(tags)
+        tags: parseDishTags(tags),
+        sales: parsedSales
       }
     })
     return success(res, formatDish(row))
@@ -346,17 +350,23 @@ router.put('/:id/dishes/:dishId', requirePermission('restaurant:menu'), async (r
       parsedPrice = parseDishPrice(body.price)
       if (parsedPrice == null) return fail(res, 400, '价格必须是大于等于 0 的数字')
     }
+    let parsedSales
+    if (body.sales !== undefined) {
+      parsedSales = parseDishSales(body.sales)
+      if (parsedSales == null) return fail(res, 400, '销量必须是大于等于 0 的整数')
+    }
     const row = await prisma.dish.update({
       where: { id: dishId },
       data: {
         name: body.name != null ? String(body.name).trim() : undefined,
         price: parsedPrice,
         categoryId: body.categoryId != null ? Number(body.categoryId) : undefined,
-        image: body.image != null ? body.image : undefined,
+        image: body.image != null ? toStoredPath(body.image) : undefined,
         desc: body.desc != null ? body.desc : undefined,
         visible: body.visible != null ? !!body.visible : undefined,
         sort: body.sort != null ? Number(body.sort) : undefined,
-        tags: body.tags !== undefined ? parseDishTags(body.tags) : undefined
+        tags: body.tags !== undefined ? parseDishTags(body.tags) : undefined,
+        sales: parsedSales
       }
     })
     return success(res, formatDish(row))

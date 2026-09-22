@@ -3,6 +3,7 @@ const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { authRequired } = require('../middleware/auth')
 const { resolvePublicUrl } = require('../utils/publicUrl')
+const { notifyNewReservation, notifyReservationCancelled } = require('../services/reservationSubscribe')
 
 const router = express.Router()
 
@@ -106,20 +107,34 @@ router.post('/', authRequired, async (req, res, next) => {
     }
 
     const id = orderId()
-    const order = await prisma.order.create({
-      data: {
-        id,
-        userId: req.userId,
-        restaurantId: rid,
-        status: 'submitted',
-        totalAmount: Math.round(total * 100) / 100,
-        remark: remark || '',
-        contactName: name,
-        contactPhone: phone,
-        reserveAt: reserveDateTime,
-        items: { create: lines }
-      },
-      include: { items: true, restaurant: true }
+    const sold = lines.reduce((s, l) => s + l.quantity, 0)
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          id,
+          userId: req.userId,
+          restaurantId: rid,
+          status: 'submitted',
+          totalAmount: Math.round(total * 100) / 100,
+          remark: remark || '',
+          contactName: name,
+          contactPhone: phone,
+          reserveAt: reserveDateTime,
+          items: { create: lines }
+        },
+        include: { items: true, restaurant: true }
+      })
+      for (const line of lines) {
+        await tx.dish.update({
+          where: { id: line.dishId },
+          data: { sales: { increment: line.quantity } }
+        })
+      }
+      await tx.restaurant.update({
+        where: { id: rid },
+        data: { monthlySales: { increment: sold } }
+      })
+      return created
     })
 
     // 通知商家（复用 Redis pub，失败不影响下单）
@@ -134,6 +149,8 @@ router.post('/', authRequired, async (req, res, next) => {
         })
       }
     } catch (_) { /* ignore */ }
+
+    notifyNewReservation(order).catch(() => {})
 
     return success(res, mapOrder(order), '预约成功')
   } catch (e) {
@@ -187,6 +204,7 @@ router.post('/:id/cancel', authRequired, async (req, res, next) => {
       data: { status: 'cancelled', cancelledAt: new Date() },
       include: { items: true, restaurant: true }
     })
+    notifyReservationCancelled(updated, '用户取消预约').catch(() => {})
     return success(res, mapOrder(updated))
   } catch (e) {
     next(e)

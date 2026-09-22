@@ -96,7 +96,7 @@ router.post('/:id/approve', adminRequired, requirePermission('onboarding:review'
         const restaurant = await tx.restaurant.create({
           data: {
             code: await allocRestaurantCode(tx),
-            name: app.restaurantName,
+            name: (app.restaurantName || '').trim() || `${app.contactName}的店`,
             cuisineTypeId: app.cuisineTypeId,
             phone: app.contactPhone,
             address: app.address,

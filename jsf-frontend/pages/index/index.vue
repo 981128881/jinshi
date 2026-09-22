@@ -9,14 +9,14 @@
 		<view v-if="banners.length" class="hero">
 			<swiper v-if="banners.length > 1" class="hero-swiper" circular autoplay :interval="5000">
 				<swiper-item v-for="b in banners" :key="b.id">
-					<image class="hero-img" :src="b.imageUrl" mode="widthFix" @click="openBanner(b)" />
+					<image class="hero-img" :src="b.imageUrl" mode="aspectFill" @click="openBanner(b)" />
 				</swiper-item>
 			</swiper>
 			<image
 				v-else
 				class="hero-img"
 				:src="banners[0].imageUrl"
-				mode="widthFix"
+				mode="aspectFill"
 				@click="openBanner(banners[0])"
 			/>
 		</view>
@@ -31,30 +31,6 @@
 			/>
 			<view class="search-btn" @click="loadList">搜索</view>
 		</view>
-
-		<!-- 品类：下划线 Tab -->
-		<scroll-view scroll-x class="cuisines" :show-scrollbar="false">
-			<view class="cuisine-inner">
-				<view
-					class="cuisine-item"
-					:class="{ active: !cuisineTypeId }"
-					@click="selectCuisine(0)"
-				>
-					<text class="cuisine-label">全部</text>
-					<view class="cuisine-line" />
-				</view>
-				<view
-					v-for="c in cuisines"
-					:key="c.id"
-					class="cuisine-item"
-					:class="{ active: cuisineTypeId === c.id }"
-					@click="selectCuisine(c.id)"
-				>
-					<text class="cuisine-label">{{ c.name }}</text>
-					<view class="cuisine-line" />
-				</view>
-			</view>
-		</scroll-view>
 
 		<!-- 店铺卡片 -->
 		<view
@@ -90,8 +66,8 @@
 </template>
 
 <script>
-	import { fetchCuisineTypes, fetchRestaurants, reverseGeocode, fetchHomeBanners } from '../../api/restaurants.js'
-	import { restaurantIdFromQuery } from '../../utils/restaurantScene.js'
+	import { fetchRestaurants, fetchRestaurantDetail, reverseGeocode, fetchHomeBanners } from '../../api/restaurants.js'
+	import { restaurantIdFromQuery, launchedRestaurantId } from '../../utils/restaurantScene.js'
 
 	const LOC_CACHE_KEY = 'home_location_cache'
 	const LIST_TTL_MS = 60 * 1000
@@ -100,8 +76,6 @@
 		data() {
 			return {
 				keyword: '',
-				cuisineTypeId: 0,
-				cuisines: [],
 				banners: [],
 				list: [],
 				lat: null,
@@ -163,28 +137,16 @@
 				return `${v.toFixed(1)}km`
 			},
 			async loadMeta(force = false) {
-				if (this._metaLoaded && !force && this.cuisines.length) return
+				if (this._metaLoaded && !force && this.banners.length) return
 				try {
-					this.cuisines = (await fetchCuisineTypes({
-						dedup: 'cuisine-types',
-						cancelKey: 'cuisine-types'
-					})) || []
+					const rows = await fetchHomeBanners({ showError: false })
+					this.banners = Array.isArray(rows) ? rows.filter((b) => b && b.imageUrl) : []
+					if (this.banners.length) this._metaLoaded = true
 				} catch (e) {}
-				try {
-					this.banners = (await fetchHomeBanners({
-						dedup: 'home-banners',
-						cancelKey: 'home-banners'
-					})) || []
-				} catch (e) {}
-				this._metaLoaded = true
 			},
 			openBanner(b) {
 				const link = (b?.link || '').trim()
 				if (link.startsWith('/pages/')) uni.navigateTo({ url: link })
-			},
-			selectCuisine(id) {
-				this.cuisineTypeId = id
-				this.loadList()
 			},
 			async refreshLocation(force = false) {
 				if (this.locating) return
@@ -233,8 +195,8 @@
 			},
 			listQueryKey() {
 				return [
+					launchedRestaurantId() || 0,
 					this.keyword || '',
-					this.cuisineTypeId || 0,
 					this.lat == null ? '' : Number(this.lat).toFixed(3),
 					this.lng == null ? '' : Number(this.lng).toFixed(3)
 				].join('|')
@@ -252,17 +214,30 @@
 				}
 				this.loading = true
 				try {
+					const shareId = launchedRestaurantId()
 					const params = {}
-					if (this.keyword) params.keyword = this.keyword
-					if (this.cuisineTypeId) params.cuisineTypeId = this.cuisineTypeId
+					if (!shareId && this.keyword) params.keyword = this.keyword
 					if (this.lat != null && this.lng != null) {
 						params.lat = this.lat
 						params.lng = this.lng
 					}
-					this.list = (await fetchRestaurants(params, {
+					let rows = (await fetchRestaurants(params, {
 						dedup: 'restaurants-list',
 						cancelKey: 'restaurants-list'
 					})) || []
+					if (shareId) {
+						rows = rows.filter((r) => Number(r.id) === shareId)
+						if (!rows.length) {
+							try {
+								const data = await fetchRestaurantDetail(shareId, {
+									showError: false,
+									auth: false
+								})
+								if (data?.restaurant) rows = [data.restaurant]
+							} catch (e) {}
+						}
+					}
+					this.list = rows
 					this._lastListAt = Date.now()
 					this._lastListKey = key
 				} catch (e) {
@@ -308,15 +283,17 @@
 	}
 
 	.hero {
-		margin: 8rpx 0 4rpx;
-	}
-	.hero-swiper {
+		margin: 8rpx 0 12rpx;
 		height: 200rpx;
+		border-radius: 16rpx;
+		overflow: hidden;
+		background: #eee;
 	}
+	.hero-swiper,
 	.hero-img {
 		display: block;
 		width: 100%;
-		border-radius: 16rpx;
+		height: 200rpx;
 	}
 
 	.search {
@@ -348,43 +325,6 @@
 		color: #fff;
 		font-size: 26rpx;
 		text-align: center;
-	}
-
-	.cuisines {
-		white-space: nowrap;
-		margin-bottom: 8rpx;
-	}
-	.cuisine-inner {
-		display: inline-flex;
-		align-items: flex-end;
-		padding: 8rpx 0 4rpx;
-	}
-	.cuisine-item {
-		display: inline-flex;
-		flex-direction: column;
-		align-items: center;
-		padding: 8rpx 22rpx 0;
-		margin-right: 8rpx;
-	}
-	.cuisine-label {
-		font-size: 28rpx;
-		color: var(--color-icon-base);
-		line-height: 1.4;
-	}
-	.cuisine-item.active .cuisine-label {
-		color: var(--color-icon-active);
-		font-weight: 700;
-		font-size: 30rpx;
-	}
-	.cuisine-line {
-		margin-top: 10rpx;
-		width: 40rpx;
-		height: 6rpx;
-		border-radius: 6rpx;
-		background: transparent;
-	}
-	.cuisine-item.active .cuisine-line {
-		background: var(--color-icon-active);
 	}
 
 	.card {

@@ -1,32 +1,32 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElNotification } from 'element-plus'
+import { fetchReservations } from '@/api/modules/reservation'
 import { getToken, isValidToken, onTokenChange } from '@/api/request/token'
 
-const WS_PATH = '/api/admin/ws'
+/** ponytail: 45s 轮询代替 WS，2G 机扛不住长连接 */
+const POLL_MS = 45_000
 
 /** @type {HTMLAudioElement | null} */
 let alertAudio = null
 
-/** 全局单例：避免布局重复挂载时开多个 WS / 弹两次 */
 const shared = {
-  connected: ref(false),
-  /** @type {WebSocket | null} */
-  ws: null,
+  active: ref(false),
+  /** @type {ReturnType<typeof setInterval> | null} */
+  pollTimer: null,
   /** @type {(() => void) | null} */
   offTokenChange: null,
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  reconnectTimer: null,
   refCount: 0,
+  /** 首轮拉取只建 baseline，不播报 */
+  primed: false,
+  /** @type {Set<string>} */
+  seenSubmitted: new Set(),
+  /** @type {Set<string>} */
+  seenCancelled: new Set(),
   /** @type {Map<string, number>} */
-  seenOrders: new Map()
+  notifyDedupe: new Map()
 }
 
-function buildWsUrl() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}${WS_PATH}`
-}
-
-function playNewOrderSound() {
+function playAlertSound() {
   try {
     if (!alertAudio) {
       alertAudio = new Audio('/sounds/new_order.mp3')
@@ -35,119 +35,143 @@ function playNewOrderSound() {
     alertAudio.pause()
     alertAudio.currentTime = 0
     const p = alertAudio.play()
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => {
-        /* 浏览器可能拦截自动播放，忽略 */
-      })
-    }
+    if (p && typeof p.catch === 'function') p.catch(() => {})
   } catch {
     /* ignore */
   }
 }
 
-/** 同一订单短时间内只提醒一次 */
-function shouldNotify(orderId) {
-  const key = String(orderId || '')
-  if (!key) return true
+/** @param {string} kind @param {string|number} orderId */
+function shouldNotify(kind, orderId) {
+  const key = `${kind}:${orderId || ''}`
+  if (!orderId) return true
   const now = Date.now()
-  const last = shared.seenOrders.get(key) || 0
+  const last = shared.notifyDedupe.get(key) || 0
   if (now - last < 15_000) return false
-  shared.seenOrders.set(key, now)
-  if (shared.seenOrders.size > 200) {
-    for (const [k, t] of shared.seenOrders) {
-      if (now - t > 60_000) shared.seenOrders.delete(k)
+  shared.notifyDedupe.set(key, now)
+  if (shared.notifyDedupe.size > 200) {
+    for (const [k, t] of shared.notifyDedupe) {
+      if (now - t > 60_000) shared.notifyDedupe.delete(k)
     }
   }
   return true
 }
 
-function disconnect() {
-  if (shared.reconnectTimer) {
-    clearTimeout(shared.reconnectTimer)
-    shared.reconnectTimer = null
-  }
-  if (shared.ws) {
-    shared.ws.onclose = null
-    shared.ws.close()
-    shared.ws = null
-  }
-  shared.connected.value = false
+function trimSeen(set, list) {
+  if (set.size <= 500) return set
+  return new Set(list.map((r) => String(r.id)))
 }
 
-function scheduleReconnect() {
-  if (shared.reconnectTimer) return
-  shared.reconnectTimer = setTimeout(() => {
-    shared.reconnectTimer = null
-    connect()
-  }, 3000)
-}
-
-function handleMessage(event) {
-  let payload
-  try {
-    payload = JSON.parse(event.data)
-  } catch {
-    return
-  }
-
-  if (payload.type === 'connected') {
-    shared.connected.value = true
-    return
-  }
-
-  if (payload.type === 'reservation' || payload.type === 'order.paid') {
-    if (!shouldNotify(payload.orderId)) return
-
-    ElNotification({
-      title: '新预约单',
-      message: `单号 ${payload.orderId}，金额 ¥${payload.totalAmount ?? 0}`,
-      type: 'success',
-      duration: 8000
+function notifyNewOrder(row) {
+  if (!shouldNotify('new', row.id)) return
+  ElNotification({
+    title: '新预约单',
+    message: `单号 ${row.id}，金额 ¥${row.totalAmount ?? 0}`,
+    type: 'success',
+    duration: 8000
+  })
+  playAlertSound()
+  window.dispatchEvent(
+    new CustomEvent('merchant:reservation', {
+      detail: { orderId: row.id, totalAmount: row.totalAmount, type: 'reservation' }
     })
-    playNewOrderSound()
-    window.dispatchEvent(new CustomEvent('merchant:reservation', { detail: payload }))
+  )
+}
+
+function notifyCancelled(row) {
+  if (!shouldNotify('cancel', row.id)) return
+  ElNotification({
+    title: '预约已取消',
+    message: `单号 ${row.id}，金额 ¥${row.totalAmount ?? 0}`,
+    type: 'warning',
+    duration: 8000
+  })
+  playAlertSound()
+  window.dispatchEvent(
+    new CustomEvent('merchant:reservation', {
+      detail: { orderId: row.id, totalAmount: row.totalAmount, type: 'cancelled' }
+    })
+  )
+}
+
+async function fetchStatusList(status) {
+  const data = await fetchReservations(
+    { status, page: 1, pageSize: 30 },
+    { loading: false, showError: false }
+  )
+  return data?.list || []
+}
+
+async function pollOnce() {
+  if (!isValidToken(getToken())) return
+  try {
+    const [submitted, cancelled] = await Promise.all([
+      fetchStatusList('submitted'),
+      fetchStatusList('cancelled')
+    ])
+
+    if (!shared.primed) {
+      for (const row of submitted) shared.seenSubmitted.add(String(row.id))
+      for (const row of cancelled) shared.seenCancelled.add(String(row.id))
+      shared.primed = true
+      return
+    }
+
+    for (const row of submitted) {
+      const id = String(row.id)
+      if (shared.seenSubmitted.has(id)) continue
+      shared.seenSubmitted.add(id)
+      notifyNewOrder(row)
+    }
+    for (const row of cancelled) {
+      const id = String(row.id)
+      if (shared.seenCancelled.has(id)) continue
+      shared.seenCancelled.add(id)
+      notifyCancelled(row)
+    }
+
+    shared.seenSubmitted = trimSeen(shared.seenSubmitted, submitted)
+    shared.seenCancelled = trimSeen(shared.seenCancelled, cancelled)
+  } catch {
+    /* 网络抖动忽略 */
   }
 }
 
-function connect() {
-  disconnect()
-
-  const token = getToken()
-  if (!isValidToken(token)) return
-
-  try {
-    shared.ws = new WebSocket(buildWsUrl())
-  } catch {
-    scheduleReconnect()
+function startPolling() {
+  stopPolling()
+  if (!isValidToken(getToken())) {
+    shared.active.value = false
     return
   }
+  shared.active.value = true
+  pollOnce()
+  shared.pollTimer = setInterval(pollOnce, POLL_MS)
+}
 
-  shared.ws.onopen = () => {
-    try {
-      shared.ws.send(JSON.stringify({ token }))
-    } catch {
-      /* ignore */
-    }
+function stopPolling() {
+  if (shared.pollTimer) {
+    clearInterval(shared.pollTimer)
+    shared.pollTimer = null
   }
-  shared.ws.onmessage = handleMessage
-  shared.ws.onclose = () => {
-    shared.connected.value = false
-    shared.ws = null
-    if (shared.refCount > 0 && isValidToken(getToken())) scheduleReconnect()
-  }
-  shared.ws.onerror = () => {}
+  shared.active.value = false
+  shared.primed = false
+  shared.seenSubmitted.clear()
+  shared.seenCancelled.clear()
 }
 
 /**
- * 运营后台 WebSocket：接收 reservation 并播放音效 + 通知（单例）
+ * 运营后台：轮询新预约 / 取消，弹窗 + 播一次音（单例）
  */
 export function useMerchantNotify() {
   onMounted(() => {
     shared.refCount += 1
     if (shared.refCount === 1) {
-      connect()
+      startPolling()
       shared.offTokenChange = onTokenChange((next) => {
-        if (shared.refCount > 0 && next) connect()
+        if (shared.refCount > 0) {
+          if (next) startPolling()
+          else stopPolling()
+        }
       })
     }
   })
@@ -159,9 +183,9 @@ export function useMerchantNotify() {
         shared.offTokenChange()
         shared.offTokenChange = null
       }
-      disconnect()
+      stopPolling()
     }
   })
 
-  return { connected: shared.connected }
+  return { connected: shared.active }
 }

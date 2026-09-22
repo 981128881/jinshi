@@ -48,6 +48,16 @@
 					</view>
 				</view>
 			</view>
+
+			<view class="order-card merchant-card" @click="goMerchant">
+				<view class="merchant-row">
+					<view class="merchant-text">
+						<text class="card-title">{{ hasShop ? '商家中心' : '商家入驻' }}</text>
+						<text class="merchant-sub">{{ merchantSub }}</text>
+					</view>
+					<text class="card-more">›</text>
+				</view>
+			</view>
 		</view>
 
 		<view v-if="userInfo.isLogin" class="logout-section">
@@ -68,12 +78,14 @@
 	import { logout } from '../../utils/auth.js'
 	import { showConfirm } from '../../utils/modal.js'
 	import ROUTES from '../../constants/routes.js'
+	import { get } from '../../utils/request.js'
 
 	export default {
 		mixins: [pageBase],
 		data() {
 			return {
 				statusBarHeight: 0,
+				merchantShops: [],
 				orderTabs: [
 					{ status: 'submitted', key: 'submitted', label: '待接单', icon: '/static/icons/order/pay.png', showCount: true },
 					{ status: 'accepted', key: 'accepted', label: '制作中', icon: '/static/icons/order/ship.png', showCount: true },
@@ -90,11 +102,22 @@
 			maskedPhone() {
 				const p = this.userInfo.phone || ''
 				return p.length >= 11 ? p.slice(0, 3) + '****' + p.slice(-4) : p
+			},
+			hasShop() {
+				return this.merchantShops.length > 0
+			},
+			merchantSub() {
+				if (!this.hasShop) return '申请开店或查看审核进度'
+				const name = this.merchantShops[0]?.restaurant?.name
+				return name ? `${name} · 接单与菜单` : '接单、菜单与店铺码'
 			}
 		},
 		onShow() {
 			if (this.userStore.isLogin) {
 				this.userStore.loadOrderCounts()
+				this.loadMerchant()
+			} else {
+				this.merchantShops = []
 			}
 		},
 		onLoad() {
@@ -139,6 +162,22 @@
 				const key = !status || status === 0 || status === '0' ? 'all' : String(status)
 				uni.setStorageSync('reservation_list_status', key)
 				uni.navigateTo({ url: ROUTES.RESERVATION_LIST })
+			},
+			async loadMerchant() {
+				try {
+					this.merchantShops = (await get('/merchant/restaurants', {}, { auth: true, showError: false })) || []
+				} catch (e) {
+					this.merchantShops = []
+				}
+			},
+			goMerchant() {
+				if (!this.userInfo.isLogin) {
+					this.requireLogin()
+					return
+				}
+				uni.navigateTo({
+					url: this.hasShop ? ROUTES.MERCHANT_HOME : ROUTES.ONBOARDING_APPLY
+				})
 			}
 		}
 	}
@@ -265,6 +304,26 @@
 }
 .user-header--guest + .order-card {
 	margin-top: 0;
+}
+.merchant-card {
+	margin-top: 0;
+}
+.merchant-row {
+	display: flex;
+	align-items: center;
+}
+.merchant-text {
+	flex: 1;
+	min-width: 0;
+}
+.merchant-sub {
+	display: block;
+	margin-top: 8rpx;
+	font-size: 24rpx;
+	color: var(--color-icon-base);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .card-header { display: flex; justify-content: space-between; margin-bottom: 24rpx; }
 .card-title { font-size: 28rpx; font-weight: 600; color: var(--color-text); }

@@ -50,7 +50,17 @@
 				if (!phone) return
 				uni.makePhoneCall({ phoneNumber: phone })
 			},
-			async cancel() {
+			cancel() {
+				uni.showModal({
+					title: '取消预约',
+					content: '确定取消该预约吗？',
+					success: (res) => {
+						if (!res.confirm) return
+						this.doCancel()
+					}
+				})
+			},
+			async doCancel() {
 				await cancelReservation(this.id)
 				uni.showToast({ title: '已取消', icon: 'success' })
 				this.load()

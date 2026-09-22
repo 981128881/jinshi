@@ -89,11 +89,14 @@ router.get('/', requirePermission('menu:reservations'), async (req, res, next) =
     const pendingWhere = { status: 'submitted' }
     if (where.restaurantId) pendingWhere.restaurantId = where.restaurantId
 
+    const orderBy =
+      where.status === 'cancelled' ? { cancelledAt: 'desc' } : { createdAt: 'desc' }
+
     const [orders, total, pendingSubmitted] = await Promise.all([
       prisma.order.findMany({
         where,
         include: { items: true, user: true, restaurant: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take
       }),
@@ -149,6 +152,10 @@ router.post('/:id/status', requirePermission('reservation:status'), async (req, 
       data,
       include: { items: true, user: true, restaurant: true }
     })
+    if (status === 'cancelled') {
+      const { notifyReservationCancelled } = require('../services/reservationSubscribe')
+      notifyReservationCancelled(updated, '平台取消预约').catch(() => {})
+    }
     return success(res, formatOrder(updated))
   } catch (e) {
     next(e)

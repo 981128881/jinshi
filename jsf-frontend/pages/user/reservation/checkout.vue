@@ -90,7 +90,7 @@
 			:maxDate="maxTs"
 			:filter="minuteFilter"
 			title="选择预约时间"
-			confirmColor="var(--color-primary)"
+			confirmColor="#88A87B"
 			:closeOnClickOverlay="true"
 			@confirm="onDatetimeConfirm"
 			@cancel="closeDatetime"
@@ -113,6 +113,7 @@
 	import { createReservation } from '../api/reservations.js'
 	import { useUserStore } from '../../../stores/user.js'
 	import { phoneNumberLogin } from '../../../utils/auth.js'
+	import { askReservationSubscribe } from '../../../utils/subscribe.js'
 	import UDatetimePicker from '../../../uni_modules/uview-plus/components/u-datetime-picker/u-datetime-picker.vue'
 
 	const DRAFT_KEY = 'reservation_draft'
@@ -245,7 +246,7 @@
 				this.reserveTime = parts.time
 				this.showDatetime = false
 			},
-			async submit() {
+			submit() {
 				const name = (this.contactName || '').trim()
 				const phone = (this.contactPhone || '').trim()
 				if (!name) {
@@ -265,6 +266,9 @@
 					uni.showToast({ title: '预约时间不能早于现在', icon: 'none' })
 					return
 				}
+				askReservationSubscribe(() => this.createOrder(name, phone))
+			},
+			async createOrder(name, phone) {
 				if (this.submitting) return
 				this.submitting = true
 				try {

@@ -4,7 +4,7 @@
       <div>
         <el-button @click="$router.push('/onboarding')">返回列表</el-button>
         <div v-if="current" class="title-row">
-          <h2 class="title">{{ current.restaurantName || '入驻详情' }}</h2>
+          <h2 class="title">{{ current.restaurantName || current.contactName || '入驻详情' }}</h2>
           <el-tag v-if="current.restaurantCode" size="small">{{ current.restaurantCode }}</el-tag>
           <el-tag size="small" :type="statusType(current.status)">{{ statusLabel(current.status) }}</el-tag>
         </div>
@@ -138,7 +138,7 @@ async function load() {
 }
 
 async function approve() {
-  await ElMessageBox.confirm(`确认通过「${current.value.restaurantName}」？`, '审核通过')
+  await ElMessageBox.confirm(`确认通过「${current.value.restaurantName || current.value.contactName}」？`, '审核通过')
   await post(`/admin/onboarding/${id.value}/approve`, {})
   ElMessage.success('已通过')
   load()

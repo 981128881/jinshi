@@ -2,7 +2,7 @@ const express = require('express')
 const prisma = require('../db/prisma')
 const { success, fail } = require('../utils/response')
 const { resolvePublicUrl } = require('../utils/publicUrl')
-const { parseDishTags } = require('../utils/dishTags')
+const { parseDishTags, parseDishSales } = require('../utils/dishTags')
 const { verifyToken } = require('../utils/jwt')
 const { getOrSet, CACHE_KEYS } = require('../db/redis')
 
@@ -87,7 +87,8 @@ function mapDish(row) {
     image: resolvePublicUrl(row.image || ''),
     desc: row.desc || '',
     visible: row.visible,
-    tags: parseDishTags(row.tags)
+    tags: parseDishTags(row.tags),
+    sales: parseDishSales(row.sales) ?? 0
   }
 }
 

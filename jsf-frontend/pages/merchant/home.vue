@@ -45,6 +45,7 @@
 
 <script>
 	import { fetchMyMerchantRestaurants, fetchRestaurantWxaCode, setRestaurantOpen } from './api/merchant.js'
+	import { askReservationSubscribe } from '../../utils/subscribe.js'
 
 	export default {
 		data() {
@@ -82,7 +83,9 @@
 				this.load()
 			},
 			goOrders(id) {
-				uni.navigateTo({ url: `/pages/merchant/orders?restaurantId=${id}` })
+				askReservationSubscribe(() => {
+					uni.navigateTo({ url: `/pages/merchant/orders?restaurantId=${id}` })
+				})
 			},
 			goMenu(id) {
 				uni.navigateTo({ url: `/pages/merchant/menu?restaurantId=${id}` })

@@ -223,9 +223,61 @@ async function getWxaCodeUnlimited({ scene, page }) {
   return result
 }
 
+function wxaMiniprogramState() {
+  const env = config.wx.wxaEnv || 'release'
+  if (env === 'trial') return 'trial'
+  if (env === 'develop') return 'developer'
+  return 'formal'
+}
+
+function clipWx(s, n) {
+  const t = String(s || '').trim()
+  if (t.length <= n) return t || ' '
+  return `${t.slice(0, n - 1)}…`
+}
+
+/**
+ * 小程序订阅消息（一次性）。用户未授权时微信返回 43101，调用方忽略即可。
+ * @see https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/mp-message-management/subscribe-message/sendMessage.html
+ */
+async function sendSubscribeMessage({ openid, templateId, page, data }) {
+  if (config.wx.mock || !templateId || !openid) return { skipped: true }
+  const tryOnce = async (forceRefresh) => {
+    const accessToken = await getAccessToken(forceRefresh)
+    const url =
+      `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${encodeURIComponent(accessToken)}`
+    return fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        touser: openid,
+        template_id: templateId,
+        page: page || '',
+        miniprogram_state: wxaMiniprogramState(),
+        lang: 'zh_CN',
+        data: data || {}
+      })
+    })
+  }
+  let result = await tryOnce(false)
+  if (result.errcode === 40001 || result.errcode === 42001) {
+    result = await tryOnce(true)
+  }
+  return result
+}
+
 module.exports = {
   code2Session,
   getPhoneNumber,
   getAccessToken,
-  getWxaCodeUnlimited
+  getWxaCodeUnlimited,
+  sendSubscribeMessage,
+  clipWx
+}
+
+if (require.main === module) {
+  const assert = require('assert')
+  assert.equal(clipWx('ab', 5), 'ab')
+  assert.equal(clipWx('abcdefghij', 5).length, 5)
+  console.log('ok')
 }

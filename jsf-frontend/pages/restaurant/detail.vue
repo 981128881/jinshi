@@ -36,11 +36,9 @@
 				<scroll-view scroll-y class="dishes" :show-scrollbar="false">
 					<view class="section-title">{{ activeCatName }}</view>
 					<view v-for="d in currentDishes" :key="d.id" class="dish">
-						<image
-							class="dish-img"
-							:src="d.image || '/static/shop/demo-1.png'"
-							mode="aspectFill"
-						/>
+						<view class="dish-img-wrap" @click="previewDish(d.id)">
+							<image class="dish-img" :src="dishImg(d)" mode="aspectFill" />
+						</view>
 						<view class="dish-body">
 							<text class="dish-name">{{ d.name }}</text>
 							<view v-if="tagList(d).length" class="dish-tags">
@@ -48,15 +46,18 @@
 							</view>
 							<text v-if="d.desc" class="dish-desc">{{ d.desc }}</text>
 							<view class="dish-foot">
-								<text class="price">¥{{ formatPrice(d.price) }}</text>
-								<view class="qty" @click.stop>
+								<view class="price-col">
+									<text class="price">¥{{ formatPrice(d.price) }}</text>
+									<text class="sold">已售{{ soldCount(d) }}</text>
+								</view>
+								<view class="qty">
 									<view
 										v-if="qtyOf(d.id) > 0"
 										class="qty-btn minus"
-										@click="decDish(d)"
+										@click="decDish(d.id)"
 									>−</view>
 									<text v-if="qtyOf(d.id) > 0" class="qty-num">{{ qtyOf(d.id) }}</text>
-									<view class="qty-btn plus" @click="addDish(d)">+</view>
+									<view class="qty-btn plus" @click="addDish(d.id)">+</view>
 								</view>
 							</view>
 						</view>
@@ -143,6 +144,26 @@
 			selectCat(id) {
 				this.activeCatId = id
 			},
+			dishImg(d) {
+				const u = (d && d.image) || ''
+				if (u && !/\.svg(\?|$)/i.test(u)) return u
+				const n = (Math.abs(Number(d && d.id) || 0) % 12) + 1
+				return `/static/dish/d${String(n).padStart(2, '0')}.png`
+			},
+			previewDish(id) {
+				let current = ''
+				for (const c of this.categories) {
+					for (const x of c.dishes || []) {
+						if (Number(x.id) === Number(id)) {
+							current = this.dishImg(x)
+							break
+						}
+					}
+					if (current) break
+				}
+				if (!current) return
+				uni.previewImage({ current, urls: [current] })
+			},
 			qtyOf(dishId) {
 				return this.basket[dishId] || 0
 			},
@@ -170,27 +191,31 @@
 				const n = Number(p)
 				return Number.isInteger(n) ? String(n) : n.toFixed(2)
 			},
-			addDish(d) {
+			soldCount(d) {
+				const n = Math.floor(Number(d && d.sales))
+				return n >= 0 ? n : 0
+			},
+			addDish(id) {
 				if (!this.restaurant?.open) {
 					uni.showToast({ title: '店铺休息中', icon: 'none' })
 					return
 				}
 				this.basket = {
 					...this.basket,
-					[d.id]: (this.basket[d.id] || 0) + 1
+					[id]: (this.basket[id] || 0) + 1
 				}
 			},
-			decDish(d) {
-				const cur = this.basket[d.id] || 0
+			decDish(id) {
+				const cur = this.basket[id] || 0
 				if (cur <= 1) {
 					const next = { ...this.basket }
-					delete next[d.id]
+					delete next[id]
 					this.basket = next
 					return
 				}
 				this.basket = {
 					...this.basket,
-					[d.id]: cur - 1
+					[id]: cur - 1
 				}
 			},
 			async submit() {
@@ -378,12 +403,18 @@
 	.dish:last-child {
 		border-bottom: none;
 	}
-	.dish-img {
+	.dish-img-wrap {
 		width: 160rpx;
 		height: 160rpx;
 		border-radius: 12rpx;
+		overflow: hidden;
 		flex-shrink: 0;
 		background: #f3f4f6;
+	}
+	.dish-img {
+		width: 100%;
+		height: 100%;
+		display: block;
 	}
 	.dish-body {
 		flex: 1;
@@ -432,15 +463,28 @@
 		align-items: center;
 		justify-content: space-between;
 	}
+	.price-col {
+		display: flex;
+		align-items: baseline;
+		gap: 12rpx;
+		min-width: 0;
+	}
 	.price {
 		color: var(--color-danger);
 		font-weight: 700;
 		font-size: 30rpx;
 	}
+	.sold {
+		font-size: 22rpx;
+		color: var(--color-text-muted);
+	}
 	.qty {
 		display: flex;
 		align-items: center;
 		gap: 12rpx;
+		flex-shrink: 0;
+		position: relative;
+		z-index: 2;
 	}
 	.qty-btn {
 		width: 44rpx;

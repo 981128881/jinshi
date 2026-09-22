@@ -49,7 +49,7 @@
         </div>
         <div class="header-right">
           <el-tag :type="notifyConnected ? 'success' : 'info'" size="small" effect="plain">
-            {{ notifyConnected ? '预约播报中' : '连接中…' }}
+            {{ notifyConnected ? '新单轮询中' : '未登录' }}
           </el-tag>
           <el-tag v-if="permissionStore.isSuper" type="warning" size="small" effect="plain">超级管理员</el-tag>
           <span class="username">{{ userStore.displayName }}</span>

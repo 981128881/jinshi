@@ -68,7 +68,9 @@
 								height: addUnit(itemHeight, 'px'),
 								lineHeight: addUnit(itemHeight, 'px'),
 								fontWeight: index1 === innerIndex[index] ? 'bold' : 'normal',
-								display: 'block'
+								display: 'block',
+								// ponytail: iOS picker-view 不吃 class/CSS 变量，暗色模式会白字白底
+								color: '#4A4A4A'
 							}"
 						>{{ getItemText(item1) }}</view>
 					</picker-view-column>
@@ -477,7 +479,7 @@ export default {
 					/* #ifndef APP-NVUE */
 					display: block;
 					/* #endif */
-					color: $u-main-color;
+					color: #4A4A4A;
 
 					&--disabled {
 						/* #ifndef APP-NVUE */

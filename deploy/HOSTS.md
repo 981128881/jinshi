@@ -22,7 +22,7 @@
 
 | 项 | 值 |
 |---|---|
-| 小程序 AppID | `wx3e9ed4f2f6d1d105` |
+| 小程序 AppID | `wxc6a5e1d4f0f981de` |
 | 出处 | `jsf-frontend/manifest.json` → `mp-weixin.appid` |
 | 合法域名 | `https://api.cr20.help` |
 

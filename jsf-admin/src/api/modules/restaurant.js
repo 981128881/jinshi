@@ -1,4 +1,5 @@
 import { get, post, put, del } from '@/api/request'
+import { uploadFile } from '@/api/request/file.js'
 
 /** @param {Record<string,*>} [params] @param {import('@/api/request/types.js').RequestOptions} [options] */
 export const fetchRestaurants = (params = {}, options) =>
@@ -58,3 +59,6 @@ export const deleteRestaurantDish = (id, dishId, options) =>
 /** @param {number|string} id @param {import('@/api/request/types.js').RequestOptions} [options] */
 export const fetchRestaurantWxaCode = (id, options) =>
   get(`/admin/restaurants/${id}/wxacode`, { loading: true, ...options })
+
+export const uploadDishImage = (file, options) =>
+  uploadFile('/admin/upload', file, 'file', { type: 'product' }, { loading: true, ...options })

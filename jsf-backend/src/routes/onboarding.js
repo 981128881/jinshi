@@ -113,22 +113,20 @@ router.post('/submit', authRequired, async (req, res, next) => {
       }
     }
 
-    const restaurantName = (body.restaurantName || existing?.restaurantName || '').trim()
+    const contactName = (body.contactName || existing?.contactName || '').trim()
     const contactPhone = (body.contactPhone || existing?.contactPhone || '').trim()
-    const address = (body.address || existing?.address || '').trim()
-    if (!restaurantName) return fail(res, 400, '请填写门店名称')
-    if (!contactPhone) return fail(res, 400, '请填写联系电话')
-    if (!address) return fail(res, 400, '请填写门店地址')
+    if (!contactName) return fail(res, 400, '请填写联系人姓名')
+    if (!/^1\d{10}$/.test(contactPhone)) return fail(res, 400, '请填写正确的手机号')
 
     const payload = {
-      contactName: body.contactName ?? existing?.contactName ?? '',
+      contactName,
       contactPhone,
       legalPerson: body.legalPerson ?? existing?.legalPerson ?? '',
       licenseNo: body.licenseNo ?? existing?.licenseNo ?? '',
       licenseImage: body.licenseImage ?? existing?.licenseImage ?? '',
-      restaurantName,
+      restaurantName: (body.restaurantName ?? existing?.restaurantName ?? '').trim(),
       cuisineTypeId: body.cuisineTypeId ?? existing?.cuisineTypeId ?? null,
-      address,
+      address: (body.address ?? existing?.address ?? '').trim(),
       latitude: Number(body.latitude ?? existing?.latitude) || 0,
       longitude: Number(body.longitude ?? existing?.longitude) || 0,
       doorImage: body.doorImage ?? existing?.doorImage ?? '',
